@@ -1,0 +1,38 @@
+{
+  "$schema_comment": "RAG Triad: không bắt buộc expected_output. Dùng retrieval_context + actual_output từ pipeline thật hoặc mô phỏng.",
+  "version": 1,
+  "cases": [
+    {
+      "id": "triad-grounded-ok-bai-tap",
+      "input": "hiện tại tôi có những bài tập nào, và tiến trình ra sao",
+      "actual_output": "Bài tập của bạn:\nBuild Responsive Landing Page - Trạng thái: Submitted\nImplement Global State Management - Trạng thái: Submitted\nMigrate Project to TypeScript + Vite - Trạng thái: Reviewed",
+      "retrieval_context": [
+        "Thông tin bài tập của intern 'nghia': Task 'Build Responsive Landing Page' (Submitted), Task 'Implement Global State Management' (Submitted), Task 'Migrate Project to TypeScript + Vite' (Reviewed)."
+      ]
+    },
+    {
+      "id": "triad-faithfulness-bad-mentor",
+      "input": "mentor của tôi là ai",
+      "actual_output": "Mentor của bạn là:\nTrịnh Thị Ngọc Hân",
+      "retrieval_context": [
+        "Thông tin intern 'nghia': mentor_id 'han_t_n'."
+      ]
+    },
+    {
+      "id": "triad-noisy-context-cham-cong",
+      "input": "tôi đã chấm công chưa",
+      "actual_output": "Chấm công tháng này (tháng 5/2026) của bạn là 0 ngày (chưa có bản ghi điểm danh).",
+      "retrieval_context": [
+        "Bản ghi điểm danh tháng 5/2026 cho intern 'nghia': không có.",
+        "Thông báo hệ thống: Sắp tới hạn báo cáo tuần.",
+        "Lịch sử task: 'Build Responsive Landing Page' đã nộp."
+      ]
+    },
+    {
+      "id": "triad-irrelevant-question",
+      "input": "mấy có màu gì",
+      "actual_output": "Tôi không có thông tin về vấn đề này trong hệ thống.",
+      "retrieval_context": []
+    }
+  ]
+}

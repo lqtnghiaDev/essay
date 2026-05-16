@@ -1,0 +1,40 @@
+{
+  "$schema_comment": "Approach 1: retrieval cần expected_output; generation chỉ cần retrieval_context.",
+  "version": 1,
+  "retrieval_cases": [
+    {
+      "id": "retrieve-danh-sach-intern",
+      "input": "hãy cho tôi biết danh sách intern của tôi",
+      "actual_output": "Danh sách thực tập sinh của mentor bao gồm:\nNguyễn Văn U\nNguyễn Văn An\nNguyễn Văn E\nNguyễn Văn B\nLê Quang Trọng Nghĩa\nPhạm Thanh Đồng",
+      "expected_output": "Danh sách thực tập sinh của mentor bao gồm:\nNguyễn Văn U\nNguyễn Văn An\nNguyễn Văn E\nNguyễn Văn B\nLê Quang Trọng Nghĩa\nPhạm Thanh Đồng",
+      "retrieval_context": [
+        "Thông tin mentor và danh sách intern quản lý: mentor_id_xyz quản lý các intern_id: u, an, e, b, nghia, dong."
+      ]
+    },
+    {
+      "id": "retrieve-cham-cong-hom-nay",
+      "input": "vậy hôm nay ai đã chấm công ai chưa chấm công",
+      "actual_output": "Dựa trên thông tin chấm công ngày 2026-05-06:\n\n**Đã chấm công:**\nNguyễn Văn U\nNguyễn Văn An\n\n**Chưa chấm công:**\nNguyễn Văn E\nNguyễn Văn B\nLê Quang Trọng Nghĩa\nPhạm Thanh Đồng",
+      "expected_output": "Dựa trên thông tin chấm công ngày 2026-05-06:\n\n**Đã chấm công:**\nNguyễn Văn U\nNguyễn Văn An\n\n**Chưa chấm công:**\nNguyễn Văn E\nNguyễn Văn B\nLê Quang Trọng Nghĩa\nPhạm Thanh Đồng",
+      "retrieval_context": [
+        "Bản ghi điểm danh ngày 2026-05-06: intern_id 'u' (checked-in), 'an' (checked-in). Các intern còn lại chưa có bản ghi."
+      ]
+    }
+  ],
+  "generation_cases": [
+    {
+      "id": "gen-tien-do-training-plan",
+      "input": "Tiến độ Training Plan của mỗi người như thế nào rồi",
+      "actual_output": "Tiến độ Training Plan của mỗi thực tập sinh như sau:\n\n**Phạm Thanh Đồng** (Kế hoạch: Build Projects with React & State Management):\n*   Build Responsive Landing Page: Reviewed\n*   Develop Interactive 3D Model Viewer: Reviewed\n*   Create SSR Blog with Dynamic Routes: Reviewed\n\n**Lê Quang Trọng Nghĩa** (Kế hoạch: Master HTML, CSS & JavaScript Fundamentals):\n*   Build Responsive Landing Page: Submitted\n*   Implement Global State Management: Submitted\n*   Migrate Project to TypeScript + Vite: Reviewed\n\n**Nguyễn Văn B** (Kế hoạch: Master HTML, CSS & JavaScript Fundamentals):\n*   Build Responsive Landing Page: InProgress\n*   Migrate Project to TypeScript + Vite: Submitted\n*   Implement Global State Management: Todo\n\n**Nguyễn Văn E** (Kế hoạch: Build Projects with React & State Management):\n*   Develop Interactive 3D Model Viewer: Todo\n*   Create SSR Blog with Dynamic Routes: Todo\n*   Build Responsive Landing Page: Todo\n\n**Nguyễn Văn An** (Kế hoạch: Test Training Plan):\n*   Create LandingPage: Reviewed\n*   Develop Interactive 3D Model Viewer: Submitted\n*   Migrate Project to TypeScript + Vite: InProgress\n\n**Nguyễn Văn U** (Kế hoạch: Test):\n*   Implement Global State Management: InProgress\n*   Implement Global State Management: Reviewed",
+      "retrieval_context": [
+        "Tổng hợp tiến độ training plan của các intern: Đồng (Reviewed, Reviewed, Reviewed), Nghĩa (Submitted, Submitted, Reviewed), B (InProgress, Submitted, Todo), E (Todo, Todo, Todo), An (Reviewed, Submitted, InProgress), U (InProgress, Reviewed)."
+      ]
+    },
+    {
+      "id": "gen-cau-hoi-ngoai-luong",
+      "input": "1 + 1 bằng mấy",
+      "actual_output": "Tôi không có thông tin về vấn đề này trong hệ thống.",
+      "retrieval_context": []
+    }
+  ]
+}
