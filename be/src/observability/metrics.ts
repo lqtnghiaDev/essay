@@ -51,7 +51,7 @@ export function observeHttpRequestMetrics(
   next();
 }
 
-export async function getPrometheusMetrics(): Promise<string> {
+export function getPrometheusMetrics(): Promise<string> {
   return registry.metrics();
 }
 

@@ -5,6 +5,7 @@ import { resourceFromAttributes } from '@opentelemetry/resources';
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
 
+// eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
 let sdk: NodeSDK | null = null;
 
 function getOtelCollectorUrl(): string {
@@ -30,7 +31,8 @@ export async function bootstrapTracing(): Promise<void> {
     diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.ERROR);
   }
 
-  const serviceName = process.env.OTEL_SERVICE_NAME ?? 'internship-management-be';
+  const serviceName =
+    process.env.OTEL_SERVICE_NAME ?? 'internship-management-be';
   const exporter = new OTLPTraceExporter({
     url: getOtelCollectorUrl(),
   });

@@ -16,8 +16,6 @@ import { bootstrapTracing, shutdownTracing } from './observability/tracing';
 import { Logger } from 'nestjs-pino';
 
 async function bootstrap() {
-  // Nest + pino + OpenTelemetry can legitimately attach >10 finish listeners per response.
-  // Raise this ceiling only for HTTP responses to avoid noisy false-positive warnings.
   ServerResponse.prototype.setMaxListeners(
     Number(process.env.HTTP_RESPONSE_MAX_LISTENERS ?? 30),
   );
@@ -25,6 +23,7 @@ async function bootstrap() {
   await bootstrapTracing();
 
   const app = await NestFactory.create(AppModule);
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
   app.useLogger(app.get(Logger));
   const port = process.env.PORT || 3000;
 
@@ -33,9 +32,11 @@ async function bootstrap() {
   app.use(observeHttpRequestMetrics);
 
   const httpServer = app.getHttpAdapter().getInstance();
-  httpServer.get('/metrics', async (_req: Request, res: Response) => {
+
+  httpServer.get('/metrics', (_req: Request, res: Response) => {
     res.setHeader('Content-Type', getPrometheusContentType());
-    res.send(await getPrometheusMetrics());
+    const metrics = getPrometheusMetrics();
+    res.send(metrics);
   });
 
   SwaggerSetupConfig(app);
@@ -47,20 +48,28 @@ async function bootstrap() {
   );
 
   app.useGlobalInterceptors(new ResponseInterceptor());
-
   app.enableCors(CORS_CONFIG);
 
   await app.listen(port);
-  console.log(`Application is running on: ${await app.getUrl()}`);
+
+  const url = await app.getUrl();
+  console.log(`Application is running on: ${url}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 }
 
 void bootstrap();
 
-process.on('SIGTERM', async () => {
-  await shutdownTracing();
-});
-
-process.on('SIGINT', async () => {
-  await shutdownTracing();
-});
+const handleShutdown = (signal: string) => {
+  console.log(`Received ${signal}. Shutting down...`);
+  shutdownTracing()
+    .then(() => {
+      console.log('Tracing provider shutdown successfully.');
+      process.exit(0);
+    })
+    .catch((err) => {
+      console.error('Error during tracing shutdown:', err);
+      process.exit(1);
+    });
+};
+process.on('SIGTERM', () => handleShutdown('SIGTERM'));
+process.on('SIGINT', () => handleShutdown('SIGINT'));
