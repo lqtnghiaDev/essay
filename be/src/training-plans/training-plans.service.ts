@@ -566,8 +566,8 @@ export class TrainingPlansService {
           recipientId: internId,
           senderId: user.id,
           type: NotificationType.TRAINING_PLAN_ASSIGNED,
-          title: 'Training Plan mới',
-          message: `${senderName} đã gán training plan cho bạn`,
+          title: 'New training plan',
+          message: `${senderName} assigned a training plan to you`,
           data: { trainingPlanId: id },
         });
       } catch (error) {

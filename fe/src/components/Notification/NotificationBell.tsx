@@ -9,13 +9,13 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Bell } from "lucide-react";
+import { Bell, Trash2 } from "lucide-react";
 import React, { useState } from "react";
 import { useNotificationStore } from "@/store/useNotificationStore";
 import { notificationServices } from "@/services/notification.services";
 import { Notification } from "@/types/notification.type";
 import { formatDistanceToNow } from "date-fns";
-import { vi } from "date-fns/locale";
+import { enUS } from "date-fns/locale";
 
 const NotificationBell = () => {
   const [open, setOpen] = useState(false);
@@ -24,6 +24,7 @@ const NotificationBell = () => {
     unreadCount,
     markAsRead: markAsReadStore,
     markAllAsRead: markAllAsReadStore,
+    removeNotification: removeNotificationStore,
   } = useNotificationStore();
 
   const handleMarkAsRead = async (id: string) => {
@@ -44,11 +45,20 @@ const NotificationBell = () => {
     }
   };
 
+  const handleDelete = async (id: string) => {
+    try {
+      await notificationServices.deleteNotification(id);
+      removeNotificationStore(id);
+    } catch (error) {
+      console.error("Failed to delete notification:", error);
+    }
+  };
+
   const formatTime = (dateStr: string) => {
     try {
       return formatDistanceToNow(new Date(dateStr), {
         addSuffix: true,
-        locale: vi,
+        locale: enUS,
       });
     } catch {
       return dateStr;
@@ -76,7 +86,7 @@ const NotificationBell = () => {
             >
               {unreadCount > 99 ? "99+" : unreadCount}
             </Badge>
-            )}
+          )}
         </Button>
       </PopoverTrigger>
 
@@ -84,9 +94,8 @@ const NotificationBell = () => {
         className="w-96 p-0 z-[9999] rounded-lg shadow-lg border border-gray-200"
         align="end"
       >
-        {/* Header */}
         <div className="px-4 py-3 border-b flex items-center justify-between bg-gray-50">
-          <h3 className="text-lg font-semibold">Thông báo</h3>
+          <h3 className="text-lg font-semibold">Notifications</h3>
           {unreadCount > 0 && (
             <Button
               variant="ghost"
@@ -94,16 +103,15 @@ const NotificationBell = () => {
               className="text-xs text-blue-600 hover:text-blue-700"
               onClick={handleMarkAllAsRead}
             >
-              Đánh dấu tất cả đã đọc
+              Mark all as read
             </Button>
           )}
         </div>
 
-        {/* Notifications list */}
-        <ScrollArea className="max-h-[400px]">
+        <ScrollArea className="h-[400px]">
           {notifications.length === 0 ? (
             <div className="px-4 py-8 text-center text-sm text-gray-500">
-              Chưa có thông báo nào
+              No notifications yet
             </div>
           ) : (
             notifications.map((notification: Notification) => (
@@ -126,16 +134,32 @@ const NotificationBell = () => {
                 </Avatar>
 
                 <div className="flex-1 min-w-0 text-sm">
-                  <p className="font-medium text-gray-900">{notification.title}</p>
+                  <p className="font-medium text-gray-900">
+                    {notification.title}
+                  </p>
                   <p className="text-gray-600 mt-0.5">{notification.message}</p>
                   <p className="text-xs text-gray-500 mt-1">
                     {formatTime(notification.createdAt)}
                   </p>
                 </div>
 
-                {!notification.isRead && (
-                  <div className="w-2 h-2 rounded-full bg-blue-500 mt-2 shrink-0" />
-                )}
+                <div className="flex flex-col items-center gap-1 shrink-0 mt-1">
+                  {!notification.isRead && (
+                    <div className="w-2 h-2 rounded-full bg-blue-500" />
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-gray-400 hover:text-red-600 hover:bg-red-50"
+                    aria-label="Delete notification"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(notification.id);
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             ))
           )}

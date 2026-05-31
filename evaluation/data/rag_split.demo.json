@@ -3,36 +3,53 @@
   "version": 1,
   "retrieval_cases": [
     {
-      "id": "retrieve-danh-sach-intern",
-      "input": "hãy cho tôi biết danh sách intern của tôi",
-      "actual_output": "Danh sách thực tập sinh của mentor bao gồm:\nNguyễn Văn U\nNguyễn Văn An\nNguyễn Văn E\nNguyễn Văn B\nLê Quang Trọng Nghĩa\nPhạm Thanh Đồng",
-      "expected_output": "Danh sách thực tập sinh của mentor bao gồm:\nNguyễn Văn U\nNguyễn Văn An\nNguyễn Văn E\nNguyễn Văn B\nLê Quang Trọng Nghĩa\nPhạm Thanh Đồng",
+      "id": "mentor-get-intern-list",
+      "input": "Hãy cho tôi biết danh sách các thực tập sinh tôi đang quản lý.",
+      "actual_output": "Dưới đây là danh sách các thực tập sinh bạn đang quản lý:\nNguyễn Văn U\nNguyễn Văn An\nNguyễn Văn E\nNguyễn Văn B\nLê Quang Trọng Nghĩa\nPhạm Thanh Đồng",
+      "expected_output": "Dưới đây là danh sách các thực tập sinh bạn đang quản lý:\nNguyễn Văn U\nNguyễn Văn An\nNguyễn Văn E\nNguyễn Văn B\nLê Quang Trọng Nghĩa\nPhạm Thanh Đồng",
       "retrieval_context": [
-        "Thông tin mentor và danh sách intern quản lý: mentor_id_xyz quản lý các intern_id: u, an, e, b, nghia, dong."
+        "Thông tin mentor Trịnh Thị Ngọc Hân (user_id: mentor_han) quản lý các thực tập sinh: Nguyễn Văn U, Nguyễn Văn An, Nguyễn Văn E, Nguyễn Văn B, Lê Quang Trọng Nghĩa, Phạm Thanh Đồng."
       ]
     },
     {
-      "id": "retrieve-cham-cong-hom-nay",
-      "input": "vậy hôm nay ai đã chấm công ai chưa chấm công",
-      "actual_output": "Dựa trên thông tin chấm công ngày 2026-05-06:\n\n**Đã chấm công:**\nNguyễn Văn U\nNguyễn Văn An\n\n**Chưa chấm công:**\nNguyễn Văn E\nNguyễn Văn B\nLê Quang Trọng Nghĩa\nPhạm Thanh Đồng",
-      "expected_output": "Dựa trên thông tin chấm công ngày 2026-05-06:\n\n**Đã chấm công:**\nNguyễn Văn U\nNguyễn Văn An\n\n**Chưa chấm công:**\nNguyễn Văn E\nNguyễn Văn B\nLê Quang Trọng Nghĩa\nPhạm Thanh Đồng",
+      "id": "mentor-get-pending-reviews",
+      "input": "Có những bài tập nào đang chờ tôi đánh giá (review)?",
+      "actual_output": "Dưới đây là các bài tập đang chờ bạn đánh giá:\n\n**Lê Quang Trọng Nghĩa:**\nBuild Responsive Landing Page [plan: Master HTML, CSS & JavaScript Fundamentals]\nImplement Global State Management [plan: Master HTML, CSS & JavaScript Fundamentals]\n\n**Nguyễn Văn B:**\nMigrate Project to TypeScript + Vite [plan: Master HTML, CSS & JavaScript Fundamentals]\n\n**Nguyễn Văn An:**\nDevelop Interactive 3D Model Viewer [plan: Test Training Plan]",
+      "expected_output": "Dưới đây là các bài tập đang chờ bạn đánh giá:\n\n**Lê Quang Trọng Nghĩa:**\nBuild Responsive Landing Page [plan: Master HTML, CSS & JavaScript Fundamentals]\nImplement Global State Management [plan: Master HTML, CSS & JavaScript Fundamentals]\n\n**Nguyễn Văn B:**\nMigrate Project to TypeScript + Vite [plan: Master HTML, CSS & JavaScript Fundamentals]\n\n**Nguyễn Văn An:**\nDevelop Interactive 3D Model Viewer [plan: Test Training Plan]",
       "retrieval_context": [
-        "Bản ghi điểm danh ngày 2026-05-06: intern_id 'u' (checked-in), 'an' (checked-in). Các intern còn lại chưa có bản ghi."
+        "Các bài tập có trạng thái 'Submitted' của các intern do mentor Trịnh Thị Ngọc Hân quản lý: [Lê Quang Trọng Nghĩa, 'Build Responsive Landing Page'], [Lê Quang Trọng Nghĩa, 'Implement Global State Management'], [Nguyễn Văn B, 'Migrate Project to TypeScript + Vite'], [Nguyễn Văn An, 'Develop Interactive 3D Model Viewer']"
+      ]
+    },
+    {
+      "id": "intern-get-mentor",
+      "input": "Mentor của tôi là ai?",
+      "actual_output": "Mentor của bạn là:\nTrịnh Thị Ngọc Hân",
+      "expected_output": "Mentor của bạn là:\nTrịnh Thị Ngọc Hân",
+      "retrieval_context": [
+        "Thông tin thực tập sinh Lê Quang Trọng Nghĩa: mentor_id là 'mentor_han', tương ứng với Trịnh Thị Ngọc Hân."
       ]
     }
   ],
   "generation_cases": [
     {
-      "id": "gen-tien-do-training-plan",
-      "input": "Tiến độ Training Plan của mỗi người như thế nào rồi",
-      "actual_output": "Tiến độ Training Plan của mỗi thực tập sinh như sau:\n\n**Phạm Thanh Đồng** (Kế hoạch: Build Projects with React & State Management):\n*   Build Responsive Landing Page: Reviewed\n*   Develop Interactive 3D Model Viewer: Reviewed\n*   Create SSR Blog with Dynamic Routes: Reviewed\n\n**Lê Quang Trọng Nghĩa** (Kế hoạch: Master HTML, CSS & JavaScript Fundamentals):\n*   Build Responsive Landing Page: Submitted\n*   Implement Global State Management: Submitted\n*   Migrate Project to TypeScript + Vite: Reviewed\n\n**Nguyễn Văn B** (Kế hoạch: Master HTML, CSS & JavaScript Fundamentals):\n*   Build Responsive Landing Page: InProgress\n*   Migrate Project to TypeScript + Vite: Submitted\n*   Implement Global State Management: Todo\n\n**Nguyễn Văn E** (Kế hoạch: Build Projects with React & State Management):\n*   Develop Interactive 3D Model Viewer: Todo\n*   Create SSR Blog with Dynamic Routes: Todo\n*   Build Responsive Landing Page: Todo\n\n**Nguyễn Văn An** (Kế hoạch: Test Training Plan):\n*   Create LandingPage: Reviewed\n*   Develop Interactive 3D Model Viewer: Submitted\n*   Migrate Project to TypeScript + Vite: InProgress\n\n**Nguyễn Văn U** (Kế hoạch: Test):\n*   Implement Global State Management: InProgress\n*   Implement Global State Management: Reviewed",
+      "id": "mentor-get-progress-summary",
+      "input": "Thống kê tiến độ các bài tập của tất cả thực tập sinh trong nhóm của tôi.",
+      "actual_output": "Dưới đây là tiến độ các bài tập của từng thực tập sinh trong nhóm của bạn:\n\n**Phạm Thanh Đồng:**\nBuild Responsive Landing Page [plan: Build Projects with React & State Management]: Reviewed\nDevelop Interactive 3D Model Viewer [plan: Build Projects with React & State Management]: Reviewed\nCreate SSR Blog with Dynamic Routes [plan: Build Projects with React & State Management]: Reviewed\n\n**Lê Quang Trọng Nghĩa:**\nBuild Responsive Landing Page [plan: Master HTML, CSS & JavaScript Fundamentals]: Submitted\nImplement Global State Management [plan: Master HTML, CSS & JavaScript Fundamentals]: Submitted\nMigrate Project to TypeScript + Vite [plan: Master HTML, CSS & JavaScript Fundamentals]: Reviewed\n\n**Nguyễn Văn B:**\nBuild Responsive Landing Page [plan: Master HTML, CSS & JavaScript Fundamentals]: InProgress\nMigrate Project to TypeScript + Vite [plan: Master HTML, CSS & JavaScript Fundamentals]: Submitted\nImplement Global State Management [plan: Master HTML, CSS & JavaScript Fundamentals]: Todo\n\n**Nguyễn Văn E:**\nDevelop Interactive 3D Model Viewer [plan: Build Projects with React & State Management]: Todo\nCreate SSR Blog with Dynamic Routes [plan: Build Projects with React & State Management]: Todo\nBuild Responsive Landing Page [plan: Build Projects with React & State Management]: Todo\n\n**Nguyễn Văn An:**\nCreate LandingPage [plan: Test Training Plan]: Reviewed\nDevelop Interactive 3D Model Viewer [plan: Test Training Plan]: Submitted\nMigrate Project to TypeScript + Vite [plan: Test Training Plan]: InProgress\n\n**Nguyễn Văn U:**\nImplement Global State Management [plan: Test]: InProgress\nImplement Global State Management [plan: Test]: Reviewed",
       "retrieval_context": [
-        "Tổng hợp tiến độ training plan của các intern: Đồng (Reviewed, Reviewed, Reviewed), Nghĩa (Submitted, Submitted, Reviewed), B (InProgress, Submitted, Todo), E (Todo, Todo, Todo), An (Reviewed, Submitted, InProgress), U (InProgress, Reviewed)."
+        "Dữ liệu tiến độ bài tập của các intern: Phạm Thanh Đồng (Reviewed, Reviewed, Reviewed), Lê Quang Trọng Nghĩa (Submitted, Submitted, Reviewed), Nguyễn Văn B (InProgress, Submitted, Todo), Nguyễn Văn E (Todo, Todo, Todo), Nguyễn Văn An (Reviewed, Submitted, InProgress), Nguyễn Văn U (InProgress, Reviewed)."
       ]
     },
     {
-      "id": "gen-cau-hoi-ngoai-luong",
-      "input": "1 + 1 bằng mấy",
+      "id": "intern-get-uncompleted-tasks",
+      "input": "Liệt kê các bài tập tôi chưa hoàn thành.",
+      "actual_output": "Bạn đã hoàn thành tất cả các bài tập.",
+      "retrieval_context": [
+        "Danh sách bài tập của thực tập sinh Lê Quang Trọng Nghĩa có trạng thái 'Todo' hoặc 'InProgress': không có."
+      ]
+    },
+    {
+      "id": "intern-ask-off-topic",
+      "input": "Công ty có tổ chức tiệc cuối năm không?",
       "actual_output": "Tôi không có thông tin về vấn đề này trong hệ thống.",
       "retrieval_context": []
     }

@@ -3,36 +3,36 @@
   "version": 1,
   "cases": [
     {
-      "id": "triad-grounded-ok-bai-tap",
-      "input": "hiện tại tôi có những bài tập nào, và tiến trình ra sao",
-      "actual_output": "Bài tập của bạn:\nBuild Responsive Landing Page - Trạng thái: Submitted\nImplement Global State Management - Trạng thái: Submitted\nMigrate Project to TypeScript + Vite - Trạng thái: Reviewed",
+      "id": "mentor-get-unattended-interns",
+      "input": "Hôm nay, những thực tập sinh nào trong nhóm của tôi chưa chấm công?",
+      "actual_output": "Dưới đây là danh sách các thực tập sinh chưa chấm công trong tháng hiện tại (5/2026):\nNguyễn Văn E\nNguyễn Văn B\nLê Quang Trọng Nghĩa\nPhạm Thanh Đồng",
       "retrieval_context": [
-        "Thông tin bài tập của intern 'nghia': Task 'Build Responsive Landing Page' (Submitted), Task 'Implement Global State Management' (Submitted), Task 'Migrate Project to TypeScript + Vite' (Reviewed)."
+        "Dữ liệu chấm công tháng 5/2026: Nguyễn Văn U (đã chấm công), Nguyễn Văn An (đã chấm công). Các intern còn lại chưa có bản ghi."
       ]
     },
     {
-      "id": "triad-faithfulness-bad-mentor",
-      "input": "mentor của tôi là ai",
-      "actual_output": "Mentor của bạn là:\nTrịnh Thị Ngọc Hân",
+      "id": "mentor-get-slowest-intern",
+      "input": "Thực tập sinh nào có tiến độ training plan chậm nhất trong tháng này?",
+      "actual_output": "Thực tập sinh có tiến độ training plan chậm nhất trong tháng này là Nguyễn Văn B.\n\nNguyễn Văn B có 0 ngày chấm công trong tháng 5/2026 và có các bài tập với tình trạng sau, trong đó có một bài tập \"Todo\" với hạn chót trong tháng này:\n*   Build Responsive Landing Page [plan: Master HTML, CSS & JavaScript Fundamentals]: InProgress (hạn 2026-05-24)\n*   Implement Global State Management [plan: Master HTML, CSS & JavaScript Fundamentals]: Todo (hạn 2026-05-24)",
       "retrieval_context": [
-        "Thông tin intern 'nghia': mentor_id 'han_t_n'."
+        "Phân tích tiến độ tháng 5: Nguyễn Văn B có 1 task 'Todo' và 1 task 'InProgress' với hạn nộp trong tháng. Số ngày chấm công: 0. Các intern khác đều có tiến độ tốt hơn (ít nhất là 'Submitted' hoặc đã hoàn thành)."
       ]
     },
     {
-      "id": "triad-noisy-context-cham-cong",
-      "input": "tôi đã chấm công chưa",
-      "actual_output": "Chấm công tháng này (tháng 5/2026) của bạn là 0 ngày (chưa có bản ghi điểm danh).",
+      "id": "intern-get-attendance-report",
+      "input": "Báo cáo chấm công của tôi trong tháng này như thế nào?",
+      "actual_output": "Chấm công của bạn trong tháng 5/2026 là 0 ngày (chưa có bản ghi điểm danh).",
       "retrieval_context": [
-        "Bản ghi điểm danh tháng 5/2026 cho intern 'nghia': không có.",
-        "Thông báo hệ thống: Sắp tới hạn báo cáo tuần.",
-        "Lịch sử task: 'Build Responsive Landing Page' đã nộp."
+        "Truy vấn bản ghi điểm danh cho user 'Lê Quang Trọng Nghĩa' trong tháng 5/2026: không tìm thấy kết quả."
       ]
     },
     {
-      "id": "triad-irrelevant-question",
-      "input": "mấy có màu gì",
+      "id": "intern-ask-policy",
+      "input": "Quy định về việc nghỉ phép trong thời gian thực tập là gì?",
       "actual_output": "Tôi không có thông tin về vấn đề này trong hệ thống.",
-      "retrieval_context": []
+      "retrieval_context": [
+        "Kết quả tìm kiếm trong vector DB cho 'quy định nghỉ phép': không có chunk nào khớp với độ tương đồng cao."
+      ]
     }
   ]
 }

@@ -299,7 +299,7 @@ export class AssignmentsService {
 
       // Gửi thông báo realtime (dùng tên người gửi, phân biệt role)
       try {
-        const senderName = user.fullName || user.username || 'Người dùng';
+        const senderName = user.fullName || user.username || 'User';
         if (status === 'Submitted' && assignment.createdBy) {
           // Chỉ thông báo mentor khi chính intern nộp bài; mentor kéo về Submitted thì không gửi
           if (user.role === 'intern') {
@@ -307,8 +307,8 @@ export class AssignmentsService {
               recipientId: assignment.createdBy,
               senderId: user.id,
               type: NotificationType.ASSIGNMENT_SUBMITTED,
-              title: 'Assignment đã được nộp',
-              message: `${senderName} đã nộp bài assignment`,
+              title: 'Assignment submitted',
+              message: `${senderName} submitted an assignment`,
               data: { assignmentId: id },
             });
           }
@@ -317,8 +317,8 @@ export class AssignmentsService {
             recipientId: assignment.assignedTo,
             senderId: user.id,
             type: NotificationType.ASSIGNMENT_REVIEWED,
-            title: 'Assignment đã được review',
-            message: `${senderName} đã review bài assignment của bạn`,
+            title: 'Assignment reviewed',
+            message: `${senderName} reviewed your assignment`,
             data: { assignmentId: id },
           });
         }
@@ -427,8 +427,8 @@ export class AssignmentsService {
             recipientId: assignment.assignedTo,
             senderId: user.id,
             type: NotificationType.ASSIGNMENT_FEEDBACK,
-            title: 'Feedback mới',
-            message: `${senderName} đã gửi feedback cho assignment của bạn`,
+            title: 'New feedback',
+            message: `${senderName} left feedback on your assignment`,
             data: { assignmentId: id },
           });
         }
