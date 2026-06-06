@@ -41,18 +41,22 @@ export function AssignmentDetailModal({
 
   if (!assignment) return null;
 
-  const canSendFeedback = role === "mentor" || role === "admin";
+  const normalizedRole = role?.toLowerCase() ?? "";
+  const isIntern = normalizedRole === "intern";
+  const canEditFeedback =
+    normalizedRole === "mentor" || normalizedRole === "admin";
 
   const handleSave = () => {
-    if (canSendFeedback) onFeedbackSubmit?.(localFeedback);
-    else onLinkSubmit?.(localLink);
+    if (canEditFeedback) onFeedbackSubmit?.(localFeedback);
+    else if (isIntern) onLinkSubmit?.(localLink);
     onClose();
   };
+
+  const displayFeedback = assignment.feedback || localFeedback;
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-2xl">
-        {/* HEADER */}
         <DialogHeader className="space-y-3 pt-5">
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-1">
@@ -65,18 +69,18 @@ export function AssignmentDetailModal({
               </div>
             </div>
 
-            <Badge className={`capitalize ${getStatusColor(assignment.status)}`}>
+            <Badge
+              className={`capitalize ${getStatusColor(assignment.status)}`}
+            >
               {assignment.status}
             </Badge>
           </div>
         </DialogHeader>
 
-        {/* DESCRIPTION */}
         <div className="rounded-lg border bg-muted/30 p-4 text-sm leading-relaxed">
           {assignment.task.description || "No description provided"}
         </div>
 
-        {/* META GRID */}
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
             <p className="text-muted-foreground text-xs mb-1">Skills</p>
@@ -95,20 +99,48 @@ export function AssignmentDetailModal({
 
           <div>
             <p className="text-muted-foreground text-xs mb-1">
-              {role === "mentor" ? "Assigned to" : "Created by"}
+              {normalizedRole === "mentor" ? "Assigned to" : "Created by"}
             </p>
             <p className="font-medium">
-              {role === "mentor"
-                ? assignment?.assignee?.fullName ?? assignment.assignedTo
+              {normalizedRole === "mentor"
+                ? (assignment?.assignee?.fullName ?? assignment.assignedTo)
                 : assignment.creator?.fullName}
             </p>
           </div>
         </div>
 
-        {/* LINK PREVIEW */}
+        <div className="space-y-1 text-sm">
+          <p className="text-muted-foreground text-xs">Mentor Feedback</p>
+          {canEditFeedback ? (
+            <textarea
+              className="w-full min-h-[90px] rounded-md border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              value={localFeedback}
+              onChange={(e) => setLocalFeedback(e.target.value)}
+              placeholder="Write feedback for intern..."
+            />
+          ) : (
+            <div className="rounded-md border bg-muted/30 p-3 text-sm min-h-[60px] whitespace-pre-wrap">
+              {displayFeedback ? (
+                displayFeedback
+              ) : (
+                <span className="text-muted-foreground italic">
+                  No feedback yet
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
         <div className="space-y-1 text-sm">
           <p className="text-muted-foreground text-xs">Submission</p>
-          {assignment.submittedLink ? (
+          {isIntern ? (
+            <textarea
+              className="w-full min-h-[60px] rounded-md border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              value={localLink}
+              onChange={(e) => setLocalLink(e.target.value)}
+              placeholder="Paste your submission link..."
+            />
+          ) : assignment.submittedLink ? (
             <a
               href={assignment.submittedLink}
               target="_blank"
@@ -118,45 +150,25 @@ export function AssignmentDetailModal({
               {assignment.submittedLink}
             </a>
           ) : (
-            <div className="text-muted-foreground italic">No submission yet</div>
+            <div className="text-muted-foreground italic border rounded-md p-3">
+              No submission yet
+            </div>
           )}
         </div>
 
         <Separator />
 
-        {/* ACTION PANEL */}
         <form
           onSubmit={(e) => {
             e.preventDefault();
             handleSave();
           }}
-          className="space-y-3"
+          className="flex justify-end gap-2"
         >
-          <p className="font-medium">
-            {canSendFeedback ? "Give Feedback" : "Submit Assignment"}
-          </p>
-
-          <textarea
-            className="w-full min-h-[90px] rounded-md border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            value={canSendFeedback ? localFeedback : localLink}
-            onChange={(e) =>
-              canSendFeedback
-                ? setLocalFeedback(e.target.value)
-                : setLocalLink(e.target.value)
-            }
-            placeholder={
-              canSendFeedback
-                ? "Write feedback for intern..."
-                : "Paste your submission link..."
-            }
-          />
-
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button type="submit">Save</Button>
-          </div>
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          {(canEditFeedback || isIntern) && <Button type="submit">Save</Button>}
         </form>
       </DialogContent>
     </Dialog>
