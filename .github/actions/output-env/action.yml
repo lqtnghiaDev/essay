@@ -1,5 +1,10 @@
 name: Output Environment
-description: Output shared environment variables (AWS region, ECR repository)
+description: Output shared environment variables and resolve image tag
+
+inputs:
+  prefix:
+    description: Image tag prefix (e.g. be, fe)
+    required: true
 
 outputs:
   region:
@@ -8,16 +13,32 @@ outputs:
   ecr-repository:
     description: ECR repository
     value: ${{ steps.output-env.outputs.ecr-repository }}
+  image-tag:
+    description: Resolved image tag (e.g. be-pr-12-abc1234 or fe-main-abc1234)
+    value: ${{ steps.output-env.outputs.image-tag }}
 
 runs:
   using: composite
   steps:
-    - name: Output environment variables
+    - name: Output environment variables and resolve image tag
       id: output-env
       shell: bash
       env:
         AWS_REGION: us-east-1
         ECR_REPOSITORY: ecr-global-api
+        PREFIX: ${{ inputs.prefix }}
+        SHA: ${{ github.sha }}
+        EVENT_NAME: ${{ github.event_name }}
+        PR_NUMBER: ${{ github.event.number }}
+        BRANCH: ${{ github.ref_name }}
       run: |
         echo "region=${AWS_REGION}" >> "$GITHUB_OUTPUT"
         echo "ecr-repository=${ECR_REPOSITORY}" >> "$GITHUB_OUTPUT"
+        SHORT_SHA="${SHA::7}"
+        if [ "${EVENT_NAME}" = "pull_request" ]; then
+          TAG="${PREFIX}-pr-${PR_NUMBER}-${SHORT_SHA}"
+        else
+          SAFE_BRANCH="$(echo "${BRANCH}" | sed 's/[^a-zA-Z0-9._-]/-/g')"
+          TAG="${PREFIX}-${SAFE_BRANCH}-${SHORT_SHA}"
+        fi
+        echo "image-tag=${TAG}" >> "$GITHUB_OUTPUT"

@@ -92,7 +92,7 @@ runs:
         cache-to: type=gha,mode=max
 
     - name: Run Trivy image scan
-      uses: aquasecurity/trivy-action@master
+      uses: aquasecurity/trivy-action@0.28.0
       with:
         image-ref: ${{ steps.meta.outputs.image-uri }}
         format: "table"
@@ -100,7 +100,7 @@ runs:
         # exit-code: "1"
 
     - name: Run Trivy image scan (SARIF)
-      uses: aquasecurity/trivy-action@master
+      uses: aquasecurity/trivy-action@0.28.0
       if: always()
       with:
         image-ref: ${{ steps.meta.outputs.image-uri }}

@@ -1,0 +1,74 @@
+name: Security
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        description: "App directory to scan (e.g. be, fe)"
+        required: true
+        type: string
+      install-flags:
+        description: "Extra flags passed to npm ci"
+        required: false
+        type: string
+        default: ""
+      node-version:
+        description: "Node.js version"
+        required: false
+        type: string
+        default: "22"
+      enable-gitleaks:
+        description: "Run Gitleaks secret scan (requires GITLEAKS_LICENSE secret for org repos)"
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      SNYK_TOKEN:
+        required: true
+      GITLEAKS_LICENSE:
+        required: false
+
+permissions:
+  contents: read
+  security-events: write
+  actions: write
+
+jobs:
+  # ── Gitleaks — secret scan (opt-in) ──────────────────────────────────────────
+  gitleaks:
+    name: Gitleaks secret scan
+    if: inputs.enable-gitleaks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+  # ── SCA + SAST scan (chạy sau Gitleaks) ─────────────────────────────────────
+  sca-scan:
+    name: SCA + SAST scan
+    needs: [gitleaks]
+    if: always() && (needs.gitleaks.result == 'success' || needs.gitleaks.result == 'skipped')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Run SCA + SAST security scan
+        uses: ./.github/actions/sca-scan
+        with:
+          WORKING_DIRECTORY: ${{ inputs.working-directory }}
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+          INSTALL_FLAGS: ${{ inputs.install-flags }}
+          NODE_VERSION: ${{ inputs.node-version }}
