@@ -37,7 +37,6 @@ inputs:
     required: false
     default: "CRITICAL,HIGH"
 
-
 outputs:
   image-uri:
     description: Full ECR image URI with tag
@@ -79,7 +78,28 @@ runs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v4
 
-    - name: Build and push Docker image to ECR
+    - name: Build image locally for scanning
+      uses: docker/build-push-action@v7
+      with:
+        context: ${{ inputs.context }}
+        file: ${{ inputs.dockerfile }}
+        push: false
+        load: true
+        tags: scan-target:local
+        build-args: ${{ inputs.build-args }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Run Trivy image scan
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: scan-target:local
+        format: sarif
+        output: trivy-image-results.sarif
+        severity: ${{ inputs.trivy-severity }}
+        scanners: vuln,secret,misconfig
+
+    - name: Push image to ECR
       uses: docker/build-push-action@v7
       with:
         context: ${{ inputs.context }}
@@ -91,30 +111,13 @@ runs:
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
-    - name: Run Trivy image scan
-      uses: aquasecurity/trivy-action@0.28.0
-      with:
-        image-ref: ${{ steps.meta.outputs.image-uri }}
-        format: "table"
-        severity: ${{ inputs.trivy-severity }}
-        # exit-code: "1"
-
-    - name: Run Trivy image scan (SARIF)
-      uses: aquasecurity/trivy-action@0.28.0
-      if: always()
-      with:
-        image-ref: ${{ steps.meta.outputs.image-uri }}
-        format: "sarif"
-        output: "trivy-image-results.sarif"
-        severity: ${{ inputs.trivy-severity }}
-
-    - name: Upload Trivy image SARIF
+    - name: Upload Trivy image results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v4
       if: always()
       continue-on-error: true
       with:
-        sarif_file: "trivy-image-results.sarif"
-        category: "trivy-image"
+        sarif_file: trivy-image-results.sarif
+        category: trivy-image
 
     - name: Upload Trivy image SARIF artifact
       uses: actions/upload-artifact@v7
@@ -144,5 +147,5 @@ runs:
           echo ""
           echo "| Tool | Type | Report |"
           echo "|------|------|--------|"
-          echo "| Trivy | **Image scan** — Docker container layers (${SEVERITY}) | [Code Scanning ↗ (category: trivy-image)](${CODESCAN_URL}?query=tool%3ATrivy) · [trivy-image-results-${SHA} ↗](${RUN_URL}#artifacts) |"
+          echo "| Trivy | **Image scan** — container layers (${SEVERITY}) | [Code Scanning ↗](${CODESCAN_URL}?query=tool%3ATrivy) · [trivy-image-results-${SHA} ↗](${RUN_URL}#artifacts) |"
         } >> "$GITHUB_STEP_SUMMARY"
