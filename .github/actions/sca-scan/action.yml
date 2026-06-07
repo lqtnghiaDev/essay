@@ -66,7 +66,22 @@ runs:
       env:
         SNYK_TOKEN: ${{ inputs.SNYK_TOKEN }}
       with:
+        json: true
         args: --severity-threshold=high --file=${{ inputs.WORKING_DIRECTORY }}/package.json
+
+    - name: Convert Snyk JSON to HTML
+      if: always()
+      shell: bash
+      run: |
+        npx snyk-to-html -i snyk.json -o snyk-report.html
+
+    - name: Upload Snyk HTML report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: snyk-report-${{ github.sha }}
+        path: snyk-report.html
+        retention-days: 7
 
     - name: SCA scan summary
       if: always()
