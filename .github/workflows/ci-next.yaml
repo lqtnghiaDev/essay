@@ -55,8 +55,8 @@ jobs:
       working-directory: fe
       enable-sentry: true
       sentry-environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
-      sentry-org: ${{ vars.SENTRY_ORG }}
-      sentry-project: ${{ vars.SENTRY_PROJECT_FRONTEND }}
+      sentry-org: chientech-innovations
+      sentry-project: javascript-nextjs
     secrets:
       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
