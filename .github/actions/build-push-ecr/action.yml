@@ -144,5 +144,5 @@ runs:
           echo ""
           echo "| Tool | Type | Report |"
           echo "|------|------|--------|"
-          echo "| Trivy | Image scan (${SEVERITY}) | [Code Scanning ↗](${CODESCAN_URL}?query=tool%3ATrivy) · [trivy-image-results-${SHA} ↗](${RUN_URL}#artifacts) |"
+          echo "| Trivy | **Image scan** — Docker container layers (${SEVERITY}) | [Code Scanning ↗ (category: trivy-image)](${CODESCAN_URL}?query=tool%3ATrivy) · [trivy-image-results-${SHA} ↗](${RUN_URL}#artifacts) |"
         } >> "$GITHUB_STEP_SUMMARY"

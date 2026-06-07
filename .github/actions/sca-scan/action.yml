@@ -24,7 +24,7 @@ inputs:
   SEMGREP_RULES:
     description: "Semgrep ruleset config"
     required: false
-    default: "p/default"
+    default: "p/typescript"
 
 runs:
   using: composite
@@ -106,14 +106,29 @@ runs:
       shell: bash
       continue-on-error: true
       run: |
+        set +e
         semgrep scan \
-          --config ${{ inputs.SEMGREP_RULES }} \
+          --config "${{ inputs.SEMGREP_RULES }}" \
           --sarif \
           --output semgrep-results.sarif \
-          ${{ inputs.WORKING_DIRECTORY }} 2>&1 || true
-        [ -f semgrep-results.sarif ] || \
+          "${{ inputs.WORKING_DIRECTORY }}"
+        EXIT_CODE=$?
+        set -e
+        # Exit 0 = no findings; Exit 1 = findings found; Exit 2+ = scan error
+        echo "Semgrep exit code: ${EXIT_CODE}"
+        if [ ! -f semgrep-results.sarif ]; then
+          echo "::warning::semgrep-results.sarif not produced (exit ${EXIT_CODE}), writing empty SARIF"
           echo '{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"Semgrep","rules":[]}},"results":[]}]}' \
-          > semgrep-results.sarif
+            > semgrep-results.sarif
+        else
+          FINDINGS=$(python3 -c "
+import json, sys
+d = json.load(open('semgrep-results.sarif'))
+total = sum(len(r.get('results', [])) for r in d.get('runs', []))
+print(total)
+" 2>/dev/null || echo "?")
+          echo "Semgrep findings: ${FINDINGS}"
+        fi
 
     - name: Upload Semgrep SARIF
       uses: github/codeql-action/upload-sarif@v4
@@ -150,7 +165,7 @@ runs:
           echo ""
           echo "| Tool | Type | Report |"
           echo "|------|------|--------|"
-          echo "| Trivy | FS scan (${SEVERITY}) | [Code Scanning ↗](${CODESCAN_URL}?query=tool%3ATrivy) · [trivy-fs-results-${SHA} ↗](${RUN_URL}#artifacts) |"
-          echo "| Snyk | SCA | [snyk-report-${SHA} ↗](${RUN_URL}#artifacts) |"
-          echo "| Semgrep | SAST (${RULES}) | [Code Scanning ↗](${CODESCAN_URL}?query=tool%3ASemgrep) · [semgrep-results-${SHA} ↗](${RUN_URL}#artifacts) |"
+          echo "| Trivy | **FS scan** — npm deps in source code (${SEVERITY}) | [Code Scanning ↗ (category: trivy-fs)](${CODESCAN_URL}?query=tool%3ATrivy) · [trivy-fs-results-${SHA} ↗](${RUN_URL}#artifacts) |"
+          echo "| Snyk | SCA — npm deps | [snyk-report-${SHA} ↗](${RUN_URL}#artifacts) |"
+          echo "| Semgrep | SAST — static code analysis (${RULES}) | [Code Scanning ↗ (category: semgrep-sast)](${CODESCAN_URL}?query=tool%3ASemgrep) · [semgrep-results-${SHA} ↗](${RUN_URL}#artifacts) |"
         } >> "$GITHUB_STEP_SUMMARY"
