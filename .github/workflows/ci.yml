@@ -24,7 +24,7 @@ on:
         default: "22"
     secrets:
       SNYK_TOKEN:
-        required: false
+        required: true
 
 permissions:
   packages: write
@@ -102,3 +102,4 @@ jobs:
         with:
           WORKING_DIRECTORY: ${{ inputs.working-directory }}
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+          INSTALL_FLAGS: ${{ inputs.install-flags }}

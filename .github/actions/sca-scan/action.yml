@@ -8,8 +8,7 @@ inputs:
     default: "frontend"
   SNYK_TOKEN:
     description: "Snyk API token"
-    required: false
-    default: ""
+    required: true
   TRIVY_SEVERITY:
     description: "Trivy severity levels to report"
     required: false
@@ -18,6 +17,10 @@ inputs:
     description: "Node.js version for installing dependencies before Snyk scan"
     required: false
     default: "22"
+  INSTALL_FLAGS:
+    description: "Extra flags passed to npm ci (e.g. --legacy-peer-deps)"
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -49,18 +52,15 @@ runs:
         category: "trivy-fs"
 
     - name: Setup Node.js for Snyk
-      if: ${{ inputs.SNYK_TOKEN != '' }}
       uses: actions/setup-node@v4
       with:
         node-version: ${{ inputs.NODE_VERSION }}
 
     - name: Install dependencies for Snyk
-      if: ${{ inputs.SNYK_TOKEN != '' }}
       shell: bash
-      run: npm ci --prefix ${{ inputs.WORKING_DIRECTORY }}
+      run: npm ci --prefix ${{ inputs.WORKING_DIRECTORY }} ${{ inputs.INSTALL_FLAGS }}
 
     - name: Run Snyk SCA scan
-      if: ${{ inputs.SNYK_TOKEN != '' }}
       uses: snyk/actions/node@0.4.0
       continue-on-error: true
       env:
@@ -75,8 +75,4 @@ runs:
         echo "## SCA Security Scan" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "- **Trivy FS scan:** completed (severity: ${{ inputs.TRIVY_SEVERITY }})" >> $GITHUB_STEP_SUMMARY
-        if [ -n "${{ inputs.SNYK_TOKEN }}" ]; then
-          echo "- **Snyk SCA scan:** completed" >> $GITHUB_STEP_SUMMARY
-        else
-          echo "- **Snyk SCA scan:** skipped (no SNYK_TOKEN)" >> $GITHUB_STEP_SUMMARY
-        fi
+        echo "- **Snyk SCA scan:** completed" >> $GITHUB_STEP_SUMMARY
