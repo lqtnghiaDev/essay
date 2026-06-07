@@ -55,10 +55,10 @@ jobs:
       working-directory: fe
       enable-sentry: true
       sentry-environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+      sentry-org: ${{ vars.SENTRY_ORG }}
+      sentry-project: ${{ vars.SENTRY_PROJECT_FRONTEND }}
     secrets:
       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-      SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-      SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT_FRONTEND }}
 
   # ── Security scans (parallel) ─────────────────────────────────────────────────
   security:

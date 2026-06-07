@@ -27,15 +27,21 @@ on:
         required: false
         type: string
         default: "staging"
+      sentry-org:
+        description: "Sentry organization slug (not sensitive — use vars.SENTRY_ORG)"
+        required: false
+        type: string
+        default: ""
+      sentry-project:
+        description: "Sentry project slug (not sensitive — use vars.SENTRY_PROJECT_FRONTEND)"
+        required: false
+        type: string
+        default: ""
     secrets:
       SNYK_TOKEN:
         required: false
       SENTRY_AUTH_TOKEN:
         required: false  # required khi enable-sentry: true — set tại Sentry > Settings > Developer Settings > Internal Integrations
-      SENTRY_ORG:
-        required: false  # organization slug trong Sentry dashboard
-      SENTRY_PROJECT:
-        required: false  # project slug trong Sentry dashboard
 
 permissions:
   contents: read
@@ -153,8 +159,8 @@ jobs:
         uses: getsentry/action-release@v3
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          SENTRY_ORG: ${{ inputs.sentry-org }}
+          SENTRY_PROJECT: ${{ inputs.sentry-project }}
         with:
           environment: ${{ inputs.sentry-environment }}
           release: ${{ github.sha }}
