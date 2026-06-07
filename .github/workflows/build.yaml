@@ -140,7 +140,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Setup Node.js ${{ inputs.node-version }}
         uses: actions/setup-node@v6
@@ -166,4 +166,4 @@ jobs:
           release: ${{ github.sha }}
           sourcemaps: ${{ inputs.working-directory }}/.next/static/chunks
           url_prefix: ~/_next/static/chunks
-          ignore_missing_commits: true
+          ignore_missing: true
