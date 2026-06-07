@@ -121,12 +121,7 @@ runs:
           echo '{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"Semgrep","rules":[]}},"results":[]}]}' \
             > semgrep-results.sarif
         else
-          FINDINGS=$(python3 -c "
-import json, sys
-d = json.load(open('semgrep-results.sarif'))
-total = sum(len(r.get('results', [])) for r in d.get('runs', []))
-print(total)
-" 2>/dev/null || echo "?")
+          FINDINGS=$(python3 -c "import json; d=json.load(open('semgrep-results.sarif')); print(sum(len(r.get('results',[])) for r in d.get('runs',[])))" 2>/dev/null || echo "?")
           echo "Semgrep findings: ${FINDINGS}"
         fi
 
