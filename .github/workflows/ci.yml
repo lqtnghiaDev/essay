@@ -22,9 +22,16 @@ on:
         required: false
         type: string
         default: "22"
+      enable-gitleaks:
+        description: "Run Gitleaks secret scan (requires GITLEAKS_LICENSE secret for org repos)"
+        required: false
+        type: boolean
+        default: false
     secrets:
       SNYK_TOKEN:
         required: true
+      GITLEAKS_LICENSE:
+        required: false
 
 permissions:
   packages: write
@@ -86,9 +93,10 @@ jobs:
           path: ${{ inputs.working-directory }}/coverage/
           retention-days: 7
 
-  # ── Gitleaks — secret scan (trước SCA) ──────────────────────────────────────
+  # ── Gitleaks — secret scan (trước SCA, opt-in) ──────────────────────────────
   gitleaks:
     name: Gitleaks secret scan
+    if: inputs.enable-gitleaks
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -98,14 +106,16 @@ jobs:
           fetch-depth: 0
 
       - name: Run Gitleaks
-        run: |
-          curl -sSfL https://raw.githubusercontent.com/gitleaks/gitleaks/main/scripts/install.sh | sh -s -- -b /usr/local/bin
-          gitleaks detect --source . --exit-code 1 --redact
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
 
   # ── SCA + SAST scan (chạy sau Gitleaks) ─────────────────────────────────────
   sca-scan:
     name: SCA Scan
     needs: [gitleaks]
+    if: always() && (needs.gitleaks.result == 'success' || needs.gitleaks.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
