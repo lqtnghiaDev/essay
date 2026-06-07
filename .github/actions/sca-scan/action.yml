@@ -143,6 +143,6 @@ runs:
           echo "| Tool | Type | Report |"
           echo "|------|------|--------|"
           echo "| Trivy | FS scan (${SEVERITY}) | [Code Scanning ↗](${CODESCAN_URL}?query=tool%3ATrivy) |"
-          echo "| Snyk | SCA | [snyk-report-${SHA::7} ↗](${RUN_URL}#artifacts) |"
-          echo "| Semgrep | SAST (${RULES}) | [Code Scanning ↗](${CODESCAN_URL}?query=tool%3ASemgrep) |"
+          echo "| Snyk | SCA | [snyk-report-${SHA} ↗](${RUN_URL}#artifacts) |"
+          echo "| Semgrep | SAST (${RULES}) | [Code Scanning ↗](${CODESCAN_URL}) · [semgrep-results-${SHA} ↗](${RUN_URL}#artifacts) |"
         } >> "$GITHUB_STEP_SUMMARY"
