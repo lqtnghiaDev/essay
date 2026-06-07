@@ -123,3 +123,26 @@ runs:
         name: trivy-image-results-${{ github.sha }}
         path: trivy-image-results.sarif
         retention-days: 7
+
+    - name: Build & scan summary
+      if: always()
+      shell: bash
+      env:
+        SERVER_URL: ${{ github.server_url }}
+        REPOSITORY: ${{ github.repository }}
+        RUN_ID: ${{ github.run_id }}
+        SHA: ${{ github.sha }}
+        IMAGE_URI: ${{ steps.meta.outputs.image-uri }}
+        SEVERITY: ${{ inputs.trivy-severity }}
+      run: |
+        RUN_URL="${SERVER_URL}/${REPOSITORY}/actions/runs/${RUN_ID}"
+        CODESCAN_URL="${SERVER_URL}/${REPOSITORY}/security/code-scanning"
+        {
+          echo "## Build & Push"
+          echo ""
+          echo "- **Image:** \`${IMAGE_URI}\`"
+          echo ""
+          echo "| Tool | Type | Report |"
+          echo "|------|------|--------|"
+          echo "| Trivy | Image scan (${SEVERITY}) | [Code Scanning ↗](${CODESCAN_URL}?query=tool%3ATrivy) · [trivy-image-results-${SHA} ↗](${RUN_URL}#artifacts) |"
+        } >> "$GITHUB_STEP_SUMMARY"

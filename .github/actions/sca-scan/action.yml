@@ -24,7 +24,7 @@ inputs:
   SEMGREP_RULES:
     description: "Semgrep ruleset config"
     required: false
-    default: "auto"
+    default: "p/default"
 
 runs:
   using: composite
@@ -55,6 +55,14 @@ runs:
       with:
         sarif_file: "trivy-fs-results.sarif"
         category: "trivy-fs"
+
+    - name: Upload Trivy FS artifact
+      uses: actions/upload-artifact@v7
+      if: always()
+      with:
+        name: trivy-fs-results-${{ github.sha }}
+        path: trivy-fs-results.sarif
+        retention-days: 7
 
     # ── Snyk — SCA (dependency vulnerabilities) ──────────────────────────────
     - name: Setup Node.js for Snyk
@@ -99,10 +107,10 @@ runs:
       continue-on-error: true
       run: |
         semgrep scan \
-          --config "${{ inputs.SEMGREP_RULES }}" \
+          --config ${{ inputs.SEMGREP_RULES }} \
           --sarif \
           --output semgrep-results.sarif \
-          "${{ inputs.WORKING_DIRECTORY }}" || true
+          ${{ inputs.WORKING_DIRECTORY }} 2>&1 || true
         [ -f semgrep-results.sarif ] || \
           echo '{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"Semgrep","rules":[]}},"results":[]}]}' \
           > semgrep-results.sarif
@@ -142,7 +150,7 @@ runs:
           echo ""
           echo "| Tool | Type | Report |"
           echo "|------|------|--------|"
-          echo "| Trivy | FS scan (${SEVERITY}) | [Code Scanning ↗](${CODESCAN_URL}?query=tool%3ATrivy) |"
+          echo "| Trivy | FS scan (${SEVERITY}) | [Code Scanning ↗](${CODESCAN_URL}?query=tool%3ATrivy) · [trivy-fs-results-${SHA} ↗](${RUN_URL}#artifacts) |"
           echo "| Snyk | SCA | [snyk-report-${SHA} ↗](${RUN_URL}#artifacts) |"
-          echo "| Semgrep | SAST (${RULES}) | [Code Scanning ↗](${CODESCAN_URL}) · [semgrep-results-${SHA} ↗](${RUN_URL}#artifacts) |"
+          echo "| Semgrep | SAST (${RULES}) | [Code Scanning ↗](${CODESCAN_URL}?query=tool%3ASemgrep) · [semgrep-results-${SHA} ↗](${RUN_URL}#artifacts) |"
         } >> "$GITHUB_STEP_SUMMARY"
