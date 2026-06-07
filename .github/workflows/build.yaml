@@ -41,7 +41,7 @@ on:
       SNYK_TOKEN:
         required: false
       SENTRY_AUTH_TOKEN:
-        required: false  # required khi enable-sentry: true — set tại Sentry > Settings > Developer Settings > Internal Integrations
+        required: false # required khi enable-sentry: true — set tại Sentry > Settings > Developer Settings > Internal Integrations
 
 permissions:
   contents: read
@@ -166,3 +166,4 @@ jobs:
           release: ${{ github.sha }}
           sourcemaps: ${{ inputs.working-directory }}/.next/static/chunks
           url_prefix: ~/_next/static/chunks
+          ignore_missing_commits: true
