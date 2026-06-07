@@ -55,7 +55,6 @@ jobs:
       working-directory: fe
       enable-sentry: true
       sentry-environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
-      sentry-artifact-name: fe-build-${{ github.sha }}
     secrets:
       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
       SENTRY_ORG: ${{ secrets.SENTRY_ORG }}

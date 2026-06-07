@@ -27,11 +27,6 @@ on:
         required: false
         type: string
         default: "staging"
-      sentry-artifact-name:
-        description: "Name of the build artifact to upload to Sentry"
-        required: false
-        type: string
-        default: ""
     secrets:
       SNYK_TOKEN:
         required: false
@@ -154,19 +149,14 @@ jobs:
       - name: Build for sourcemaps
         run: npm run build
 
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ inputs.sentry-artifact-name != '' && inputs.sentry-artifact-name || format('build-{0}', github.sha) }}
-          path: ${{ inputs.working-directory }}/.next/
-          retention-days: 1
-
       - name: Create Sentry release
-        uses: ./.github/actions/sentry-release
-        with:
+        uses: getsentry/action-release@v3
+        env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
-          ARTIFACT_NAME: ${{ inputs.sentry-artifact-name != '' && inputs.sentry-artifact-name || format('build-{0}', github.sha) }}
-          ENVIRONMENT: ${{ inputs.sentry-environment }}
-          VERSION: ${{ github.sha }}
+        with:
+          environment: ${{ inputs.sentry-environment }}
+          release: ${{ github.sha }}
+          sourcemaps: ${{ inputs.working-directory }}/.next/static/chunks
+          url_prefix: ~/_next/static/chunks
