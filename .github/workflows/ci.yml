@@ -97,11 +97,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install Gitleaks
-        run: curl -sSfL https://raw.githubusercontent.com/gitleaks/gitleaks/main/scripts/install.sh | sh -s -- -b /usr/local/bin
-
       - name: Run Gitleaks
-        run: gitleaks detect --source . --exit-code 1 --redact
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/gitleaks/gitleaks/main/scripts/install.sh | sh -s -- -b /usr/local/bin
+          gitleaks detect --source . --exit-code 1 --redact
 
   # ── SCA + SAST scan (chạy sau Gitleaks) ─────────────────────────────────────
   sca-scan:
