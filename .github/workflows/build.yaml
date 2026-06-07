@@ -36,11 +36,11 @@ on:
       SNYK_TOKEN:
         required: false
       SENTRY_AUTH_TOKEN:
-        required: false
+        required: false  # required khi enable-sentry: true — set tại Sentry > Settings > Developer Settings > Internal Integrations
       SENTRY_ORG:
-        required: false
+        required: false  # organization slug trong Sentry dashboard
       SENTRY_PROJECT:
-        required: false
+        required: false  # project slug trong Sentry dashboard
 
 permissions:
   contents: read

@@ -66,7 +66,7 @@ jobs:
   # ── Build & push Docker image ─────────────────────────────────────────────────
   docker:
     name: Build & push backend image
-    needs: [build]
+    needs: [build, security]
     environment: HUB
     runs-on: ubuntu-latest
     outputs:

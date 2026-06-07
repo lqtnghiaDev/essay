@@ -53,7 +53,7 @@ jobs:
     uses: ./.github/workflows/build.yaml
     with:
       working-directory: fe
-      enable-sentry: ${{ github.event_name == 'push' }}
+      enable-sentry: true
       sentry-environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
       sentry-artifact-name: fe-build-${{ github.sha }}
     secrets:
@@ -73,7 +73,7 @@ jobs:
   # ── Build & push Docker image ─────────────────────────────────────────────────
   docker:
     name: Build & push frontend image
-    needs: [build]
+    needs: [build, security]
     environment: HUB
     runs-on: ubuntu-latest
     outputs:
