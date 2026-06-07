@@ -79,10 +79,12 @@ jobs:
           if [ -f coverage/coverage-summary.json ]; then
             COVERAGE=$(node -e "const c = require('./coverage/coverage-summary.json'); console.log(c.total.lines.pct)")
           fi
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           {
             echo "## Unit Tests"
             echo ""
             echo "- **Coverage:** ${COVERAGE}%"
+            echo "- **Report:** [coverage-report-${{ github.sha }} ↗](${RUN_URL}#artifacts)"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload coverage artifact

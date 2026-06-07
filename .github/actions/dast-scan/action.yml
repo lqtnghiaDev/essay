@@ -70,11 +70,22 @@ runs:
     - name: DAST scan summary
       if: always()
       shell: bash
+      env:
+        SERVER_URL: ${{ github.server_url }}
+        REPOSITORY: ${{ github.repository }}
+        RUN_ID: ${{ github.run_id }}
+        SHA: ${{ github.sha }}
+        TARGET_URL: ${{ inputs.TARGET_URL }}
       run: |
+        RUN_URL="${SERVER_URL}/${REPOSITORY}/actions/runs/${RUN_ID}"
+        CODESCAN_URL="${SERVER_URL}/${REPOSITORY}/security/code-scanning"
         {
           echo "## DAST Scan"
           echo ""
-          echo "- **Target:** ${{ inputs.TARGET_URL }}"
-          echo "- **OWASP ZAP:** completed (baseline passive scan)"
-          echo "- **Nuclei:** completed (template-based: exposures, misconfig, technologies)"
+          echo "**Target:** \`${TARGET_URL}\`"
+          echo ""
+          echo "| Tool | Type | Report |"
+          echo "|------|------|--------|"
+          echo "| OWASP ZAP | Baseline passive | [zap-report-${SHA::7} ↗](${RUN_URL}#artifacts) |"
+          echo "| Nuclei | Template-based (exposures, misconfig) | [Code Scanning ↗](${CODESCAN_URL}?query=tool%3ANuclei) · [nuclei-results-${SHA::7} ↗](${RUN_URL}#artifacts) |"
         } >> "$GITHUB_STEP_SUMMARY"

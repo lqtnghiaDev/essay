@@ -127,11 +127,22 @@ runs:
     - name: SCA + SAST scan summary
       if: always()
       shell: bash
+      env:
+        SERVER_URL: ${{ github.server_url }}
+        REPOSITORY: ${{ github.repository }}
+        RUN_ID: ${{ github.run_id }}
+        SHA: ${{ github.sha }}
+        SEVERITY: ${{ inputs.TRIVY_SEVERITY }}
+        RULES: ${{ inputs.SEMGREP_RULES }}
       run: |
+        RUN_URL="${SERVER_URL}/${REPOSITORY}/actions/runs/${RUN_ID}"
+        CODESCAN_URL="${SERVER_URL}/${REPOSITORY}/security/code-scanning"
         {
           echo "## SCA + SAST Security Scan"
           echo ""
-          echo "- **Trivy FS scan:** completed (severity: ${{ inputs.TRIVY_SEVERITY }})"
-          echo "- **Snyk SCA scan:** completed"
-          echo "- **Semgrep SAST:** completed (rules: ${{ inputs.SEMGREP_RULES }})"
+          echo "| Tool | Type | Report |"
+          echo "|------|------|--------|"
+          echo "| Trivy | FS scan (${SEVERITY}) | [Code Scanning ↗](${CODESCAN_URL}?query=tool%3ATrivy) |"
+          echo "| Snyk | SCA | [snyk-report-${SHA::7} ↗](${RUN_URL}#artifacts) |"
+          echo "| Semgrep | SAST (${RULES}) | [Code Scanning ↗](${CODESCAN_URL}?query=tool%3ASemgrep) |"
         } >> "$GITHUB_STEP_SUMMARY"
