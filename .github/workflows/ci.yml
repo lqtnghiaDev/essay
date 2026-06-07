@@ -50,7 +50,7 @@ jobs:
           fetch-depth: 1
 
       - name: Setup Node.js ${{ inputs.node-version }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ inputs.node-version }}
           cache: npm
@@ -80,15 +80,33 @@ jobs:
 
       - name: Upload coverage artifact
         if: inputs.run-coverage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report-${{ github.sha }}
           path: ${{ inputs.working-directory }}/coverage/
           retention-days: 7
 
-  # ── SCA security scan (parallel với lint-test: 1 checkout, không npm ci) ─────
+  # ── Gitleaks — secret scan (trước SCA) ──────────────────────────────────────
+  gitleaks:
+    name: Gitleaks secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: "false"
+
+  # ── SCA + SAST scan (chạy sau Gitleaks) ─────────────────────────────────────
   sca-scan:
     name: SCA Scan
+    needs: [gitleaks]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:

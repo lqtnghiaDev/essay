@@ -1,5 +1,5 @@
 name: DAST Scan
-description: Runs OWASP ZAP baseline scan against a deployed URL
+description: OWASP ZAP (baseline) · Nuclei (template-based)
 
 inputs:
   TARGET_URL:
@@ -13,6 +13,7 @@ inputs:
 runs:
   using: composite
   steps:
+    # ── OWASP ZAP — baseline passive scan ───────────────────────────────────
     - name: Run OWASP ZAP Baseline Scan (default rules)
       if: ${{ inputs.ZAP_RULES_CONFIG == '' }}
       uses: zaproxy/action-baseline@v0.14.0
@@ -32,17 +33,48 @@ runs:
 
     - name: Upload ZAP report
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: zap-report-${{ github.sha }}
         path: report_html.html
         retention-days: 7
 
+    # ── Nuclei — template-based DAST scan ────────────────────────────────────
+    - name: Run Nuclei DAST scan
+      uses: projectdiscovery/nuclei-action@v3
+      continue-on-error: true
+      with:
+        target: ${{ inputs.TARGET_URL }}
+        flags: >-
+          -sarif-export nuclei-results.sarif
+          -tags exposures,misconfig,technologies
+          -duc
+
+    - name: Upload Nuclei SARIF
+      uses: github/codeql-action/upload-sarif@v4
+      if: always()
+      continue-on-error: true
+      with:
+        sarif_file: nuclei-results.sarif
+        category: nuclei-dast
+
+    - name: Upload Nuclei artifact
+      uses: actions/upload-artifact@v7
+      if: always()
+      with:
+        name: nuclei-results-${{ github.sha }}
+        path: nuclei-results.sarif
+        retention-days: 7
+
+    # ── Summary ──────────────────────────────────────────────────────────────
     - name: DAST scan summary
       if: always()
       shell: bash
       run: |
-        echo "## DAST Scan (OWASP ZAP)" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "- **Target:** ${{ inputs.TARGET_URL }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Scan type:** Baseline (passive)" >> $GITHUB_STEP_SUMMARY
+        {
+          echo "## DAST Scan"
+          echo ""
+          echo "- **Target:** ${{ inputs.TARGET_URL }}"
+          echo "- **OWASP ZAP:** completed (baseline passive scan)"
+          echo "- **Nuclei:** completed (template-based: exposures, misconfig, technologies)"
+        } >> "$GITHUB_STEP_SUMMARY"
