@@ -14,6 +14,10 @@ inputs:
     description: "Trivy severity levels to report"
     required: false
     default: "CRITICAL,HIGH"
+  NODE_VERSION:
+    description: "Node.js version for installing dependencies before Snyk scan"
+    required: false
+    default: "22"
 
 runs:
   using: composite
@@ -43,6 +47,17 @@ runs:
       with:
         sarif_file: "trivy-fs-results.sarif"
         category: "trivy-fs"
+
+    - name: Setup Node.js for Snyk
+      if: ${{ inputs.SNYK_TOKEN != '' }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.NODE_VERSION }}
+
+    - name: Install dependencies for Snyk
+      if: ${{ inputs.SNYK_TOKEN != '' }}
+      shell: bash
+      run: npm ci --prefix ${{ inputs.WORKING_DIRECTORY }}
 
     - name: Run Snyk SCA scan
       if: ${{ inputs.SNYK_TOKEN != '' }}
