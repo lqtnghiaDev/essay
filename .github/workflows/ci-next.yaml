@@ -9,9 +9,9 @@ on:
       - "fe/**"
       - ".github/workflows/ci-next.yaml"
       - ".github/workflows/build.yaml"
+      - ".github/workflows/resolve-env.yaml"
       - ".github/actions/build-push-ecr/**"
       - ".github/actions/sca-scan/**"
-      - ".github/actions/output-env/**"
   pull_request:
     branches:
       - main
@@ -20,9 +20,9 @@ on:
       - "fe/**"
       - ".github/workflows/ci-next.yaml"
       - ".github/workflows/build.yaml"
+      - ".github/workflows/resolve-env.yaml"
       - ".github/actions/build-push-ecr/**"
       - ".github/actions/sca-scan/**"
-      - ".github/actions/output-env/**"
   workflow_dispatch:
 
 concurrency:
@@ -47,16 +47,24 @@ env:
     NEXT_PUBLIC_API_BASE_URL=https://api.duychien.shop
 
 jobs:
+  # ── Resolve variables & image tag ────────────────────────────────────────────
+  resolve:
+    name: Resolve environment
+    uses: ./.github/workflows/resolve-env.yaml
+    with:
+      prefix: fe
+
   # ── Lint + test + Sentry (reusable) ──────────────────────────────────────────
   build:
     name: Frontend build
+    needs: [resolve]
     uses: ./.github/workflows/build.yaml
     with:
       working-directory: fe
       enable-sentry: true
       sentry-environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
-      sentry-org: chientech-innovations
-      sentry-project: javascript-nextjs
+      sentry-org: ${{ needs.resolve.outputs.sentry-org }}
+      sentry-project: ${{ needs.resolve.outputs.sentry-project-frontend }}
     secrets:
       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
@@ -72,31 +80,25 @@ jobs:
   # ── Build & push Docker image ─────────────────────────────────────────────────
   docker:
     name: Build & push frontend image
-    needs: [build, security]
+    needs: [resolve, build, security]
     environment: HUB
     runs-on: ubuntu-latest
     outputs:
       image-uri: ${{ steps.docker-build.outputs.image-uri }}
-      image-tag: ${{ steps.output-env.outputs.image-tag }}
+      image-tag: ${{ needs.resolve.outputs.image-tag }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Output environment variables
-        id: output-env
-        uses: ./.github/actions/output-env
-        with:
-          prefix: fe
-
       - name: Build & push frontend image to ECR
         id: docker-build
         uses: ./.github/actions/build-push-ecr
         with:
-          aws-region: ${{ steps.output-env.outputs.region }}
+          aws-region: ${{ needs.resolve.outputs.region }}
           aws-oidc-role: ${{ vars.AWS_OIDC_ROLE }}
-          ecr-repository: ${{ steps.output-env.outputs.ecr-repository }}
-          image-tag: ${{ steps.output-env.outputs.image-tag }}
+          ecr-repository: ${{ needs.resolve.outputs.ecr-repository }}
+          image-tag: ${{ needs.resolve.outputs.image-tag }}
           tag-latest: ${{ github.ref_name == 'main' && 'true' || 'false' }}
           context: ${{ env.BUILD_CONTEXT }}
           dockerfile: ${{ env.BUILD_DOCKERFILE }}

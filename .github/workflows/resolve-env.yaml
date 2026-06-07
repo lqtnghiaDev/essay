@@ -1,0 +1,63 @@
+name: Resolve Environment
+
+on:
+  workflow_call:
+    inputs:
+      prefix:
+        description: Image tag prefix (e.g. be, fe)
+        required: true
+        type: string
+    outputs:
+      region:
+        description: AWS region
+        value: ${{ jobs.resolve.outputs.region }}
+      ecr-repository:
+        description: ECR repository name
+        value: ${{ jobs.resolve.outputs.ecr-repository }}
+      image-tag:
+        description: Resolved image tag (e.g. fe-pr-12-abc1234)
+        value: ${{ jobs.resolve.outputs.image-tag }}
+      sentry-org:
+        description: Sentry organization slug
+        value: ${{ jobs.resolve.outputs.sentry-org }}
+      sentry-project-frontend:
+        description: Sentry project slug for frontend
+        value: ${{ jobs.resolve.outputs.sentry-project-frontend }}
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    name: Resolve environment
+    runs-on: ubuntu-latest
+    outputs:
+      region: ${{ steps.env.outputs.region }}
+      ecr-repository: ${{ steps.env.outputs.ecr-repository }}
+      image-tag: ${{ steps.env.outputs.image-tag }}
+      sentry-org: ${{ steps.env.outputs.sentry-org }}
+      sentry-project-frontend: ${{ steps.env.outputs.sentry-project-frontend }}
+    steps:
+      - name: Resolve variables and image tag
+        id: env
+        env:
+          PREFIX: ${{ inputs.prefix }}
+          SHA: ${{ github.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.number }}
+          BRANCH: ${{ github.ref_name }}
+          SENTRY_ORG_VAR: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT_FE: ${{ vars.SENTRY_PROJECT_FRONTEND }}
+        run: |
+          echo "region=us-east-1" >> "$GITHUB_OUTPUT"
+          echo "ecr-repository=ecr-global-api" >> "$GITHUB_OUTPUT"
+          echo "sentry-org=${SENTRY_ORG_VAR}" >> "$GITHUB_OUTPUT"
+          echo "sentry-project-frontend=${SENTRY_PROJECT_FE}" >> "$GITHUB_OUTPUT"
+          SHORT_SHA="${SHA::7}"
+          if [ "${EVENT_NAME}" = "pull_request" ]; then
+            TAG="${PREFIX}-pr-${PR_NUMBER}-${SHORT_SHA}"
+          else
+            SAFE_BRANCH="$(echo "${BRANCH}" | sed 's/[^a-zA-Z0-9._-]/-/g')"
+            TAG="${PREFIX}-${SAFE_BRANCH}-${SHORT_SHA}"
+          fi
+          echo "image-tag=${TAG}" >> "$GITHUB_OUTPUT"

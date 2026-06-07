@@ -9,9 +9,9 @@ on:
       - "be/**"
       - ".github/workflows/ci-nest.yaml"
       - ".github/workflows/build.yaml"
+      - ".github/workflows/resolve-env.yaml"
       - ".github/actions/build-push-ecr/**"
       - ".github/actions/sca-scan/**"
-      - ".github/actions/output-env/**"
   pull_request:
     branches:
       - main
@@ -20,9 +20,9 @@ on:
       - "be/**"
       - ".github/workflows/ci-nest.yaml"
       - ".github/workflows/build.yaml"
+      - ".github/workflows/resolve-env.yaml"
       - ".github/actions/build-push-ecr/**"
       - ".github/actions/sca-scan/**"
-      - ".github/actions/output-env/**"
   workflow_dispatch:
 
 concurrency:
@@ -45,6 +45,13 @@ env:
   BUILD_DOCKERFILE: ./be/Dockerfile
 
 jobs:
+  # ── Resolve variables & image tag ────────────────────────────────────────────
+  resolve:
+    name: Resolve environment
+    uses: ./.github/workflows/resolve-env.yaml
+    with:
+      prefix: be
+
   # ── Lint + test (reusable) ────────────────────────────────────────────────────
   build:
     name: Backend build
@@ -66,32 +73,26 @@ jobs:
   # ── Build & push Docker image ─────────────────────────────────────────────────
   docker:
     name: Build & push backend image
-    needs: [build, security]
+    needs: [resolve, build, security]
     environment: HUB
     runs-on: ubuntu-latest
     outputs:
       image-uri: ${{ steps.docker-build.outputs.image-uri }}
-      image-tag: ${{ steps.output-env.outputs.image-tag }}
-      region: ${{ steps.output-env.outputs.region }}
+      image-tag: ${{ needs.resolve.outputs.image-tag }}
+      region: ${{ needs.resolve.outputs.region }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Output environment variables
-        id: output-env
-        uses: ./.github/actions/output-env
-        with:
-          prefix: be
-
       - name: Build & push backend image to ECR
         id: docker-build
         uses: ./.github/actions/build-push-ecr
         with:
-          aws-region: ${{ steps.output-env.outputs.region }}
+          aws-region: ${{ needs.resolve.outputs.region }}
           aws-oidc-role: ${{ vars.AWS_OIDC_ROLE }}
-          ecr-repository: ${{ steps.output-env.outputs.ecr-repository }}
-          image-tag: ${{ steps.output-env.outputs.image-tag }}
+          ecr-repository: ${{ needs.resolve.outputs.ecr-repository }}
+          image-tag: ${{ needs.resolve.outputs.image-tag }}
           tag-latest: ${{ github.ref_name == 'main' && 'true' || 'false' }}
           context: ${{ env.BUILD_CONTEXT }}
           dockerfile: ${{ env.BUILD_DOCKERFILE }}
