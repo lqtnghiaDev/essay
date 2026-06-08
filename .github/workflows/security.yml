@@ -27,6 +27,10 @@ on:
         required: true
       GITLEAKS_LICENSE:
         required: false
+      DEVSEC_AGENT_URL:
+        required: false
+      DEVSEC_AGENT_TOKEN:
+        required: false
 
 permissions:
   contents: read
@@ -72,3 +76,38 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
           INSTALL_FLAGS: ${{ inputs.install-flags }}
           NODE_VERSION: ${{ inputs.node-version }}
+
+      - name: Notify DevSec Agent
+        if: always() && secrets.DEVSEC_AGENT_URL != ''
+        shell: bash
+        env:
+          DEVSEC_AGENT_URL: ${{ secrets.DEVSEC_AGENT_URL }}
+          DEVSEC_AGENT_TOKEN: ${{ secrets.DEVSEC_AGENT_TOKEN }}
+        run: |
+          PIPELINE_STATUS="passed"
+          if [ "${{ job.status }}" != "success" ]; then PIPELINE_STATUS="failed"; fi
+
+          AUTH_HEADER=()
+          if [ -n "${DEVSEC_AGENT_TOKEN}" ]; then
+            AUTH_HEADER=(-H "X-Webhook-Token: ${DEVSEC_AGENT_TOKEN}")
+          fi
+
+          STATUS=$(curl -s -o /tmp/agent-resp.txt -w "%{http_code}" \
+            --max-time 20 \
+            -X POST "${DEVSEC_AGENT_URL%/}/webhook/pipeline-complete" \
+            -H "Content-Type: application/json" \
+            "${AUTH_HEADER[@]}" \
+            -d "{
+              \"run_id\": ${{ github.run_id }},
+              \"repository\": \"${{ github.repository }}\",
+              \"ref\": \"${{ github.ref }}\",
+              \"sha\": \"${{ github.sha }}\",
+              \"actor\": \"${{ github.actor }}\",
+              \"pipeline_status\": \"${PIPELINE_STATUS}\"
+            }") || STATUS=0
+
+          if [ "${STATUS}" = "202" ]; then
+            echo "::notice::DevSec Agent accepted run ${{ github.run_id }}"
+          else
+            echo "::warning::DevSec Agent webhook returned HTTP ${STATUS} (non-blocking)"
+          fi
