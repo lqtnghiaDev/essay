@@ -22,8 +22,15 @@ on:
         required: false
         type: string
         default: "22"
+      enable-gitleaks:
+        description: "Run Gitleaks secret scan (requires GITLEAKS_LICENSE secret for org repos)"
+        required: false
+        type: boolean
+        default: false
     secrets:
       SNYK_TOKEN:
+        required: true
+      GITLEAKS_LICENSE:
         required: false
 
 permissions:
@@ -44,11 +51,13 @@ jobs:
       run:
         working-directory: ${{ inputs.working-directory }}
     steps:
-      - uses: actions/checkout@v5
+      - name: Checkout source code
+        uses: actions/checkout@v6
         with:
           fetch-depth: 1
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js ${{ inputs.node-version }}
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ inputs.node-version }}
           cache: npm
@@ -70,31 +79,56 @@ jobs:
           if [ -f coverage/coverage-summary.json ]; then
             COVERAGE=$(node -e "const c = require('./coverage/coverage-summary.json'); console.log(c.total.lines.pct)")
           fi
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           {
             echo "## Unit Tests"
             echo ""
             echo "- **Coverage:** ${COVERAGE}%"
+            echo "- **Report:** [coverage-report-${{ github.sha }} ↗](${RUN_URL}#artifacts)"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload coverage artifact
         if: inputs.run-coverage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report-${{ github.sha }}
           path: ${{ inputs.working-directory }}/coverage/
           retention-days: 7
 
-  # ── SCA security scan (parallel với lint-test: 1 checkout, không npm ci) ─────
+  # ── Gitleaks — secret scan (trước SCA, opt-in) ──────────────────────────────
+  gitleaks:
+    name: Gitleaks secret scan
+    if: inputs.enable-gitleaks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+  # ── SCA + SAST scan (chạy sau Gitleaks) ─────────────────────────────────────
   sca-scan:
     name: SCA Scan
+    needs: [gitleaks]
+    if: always() && (needs.gitleaks.result == 'success' || needs.gitleaks.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v5
+      - name: Checkout source code
+        uses: actions/checkout@v6
         with:
           fetch-depth: 1
 
-      - uses: ./.github/actions/sca-scan
+      - name: Run SCA security scan
+        uses: ./.github/actions/sca-scan
         with:
           WORKING_DIRECTORY: ${{ inputs.working-directory }}
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+          INSTALL_FLAGS: ${{ inputs.install-flags }}

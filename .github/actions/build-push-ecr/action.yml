@@ -78,7 +78,28 @@ runs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v4
 
-    - name: Build and push Docker image to ECR
+    - name: Build image locally for scanning
+      uses: docker/build-push-action@v7
+      with:
+        context: ${{ inputs.context }}
+        file: ${{ inputs.dockerfile }}
+        push: false
+        load: true
+        tags: scan-target:local
+        build-args: ${{ inputs.build-args }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Run Trivy image scan
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: scan-target:local
+        format: sarif
+        output: trivy-image-results.sarif
+        severity: ${{ inputs.trivy-severity }}
+        scanners: vuln,secret,misconfig
+
+    - name: Push image to ECR
       uses: docker/build-push-action@v7
       with:
         context: ${{ inputs.context }}
@@ -90,27 +111,41 @@ runs:
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
-    - name: Run Trivy image scan
-      uses: aquasecurity/trivy-action@master
-      with:
-        image-ref: ${{ steps.meta.outputs.image-uri }}
-        format: "table"
-        severity: ${{ inputs.trivy-severity }}
-        # exit-code: "1"
-
-    - name: Run Trivy image scan (SARIF)
-      uses: aquasecurity/trivy-action@master
-      if: always()
-      with:
-        image-ref: ${{ steps.meta.outputs.image-uri }}
-        format: "sarif"
-        output: "trivy-image-results.sarif"
-        severity: ${{ inputs.trivy-severity }}
-
-    - name: Upload Trivy image SARIF
+    - name: Upload Trivy image results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v4
       if: always()
       continue-on-error: true
       with:
-        sarif_file: "trivy-image-results.sarif"
-        category: "trivy-image"
+        sarif_file: trivy-image-results.sarif
+        category: trivy-image
+
+    - name: Upload Trivy image SARIF artifact
+      uses: actions/upload-artifact@v7
+      if: always()
+      with:
+        name: trivy-image-results-${{ github.sha }}
+        path: trivy-image-results.sarif
+        retention-days: 7
+
+    - name: Build & scan summary
+      if: always()
+      shell: bash
+      env:
+        SERVER_URL: ${{ github.server_url }}
+        REPOSITORY: ${{ github.repository }}
+        RUN_ID: ${{ github.run_id }}
+        SHA: ${{ github.sha }}
+        IMAGE_URI: ${{ steps.meta.outputs.image-uri }}
+        SEVERITY: ${{ inputs.trivy-severity }}
+      run: |
+        RUN_URL="${SERVER_URL}/${REPOSITORY}/actions/runs/${RUN_ID}"
+        CODESCAN_URL="${SERVER_URL}/${REPOSITORY}/security/code-scanning"
+        {
+          echo "## Build & Push"
+          echo ""
+          echo "- **Image:** \`${IMAGE_URI}\`"
+          echo ""
+          echo "| Tool | Type | Report |"
+          echo "|------|------|--------|"
+          echo "| Trivy | **Image scan** — container layers (${SEVERITY}) | [Code Scanning ↗](${CODESCAN_URL}?query=tool%3ATrivy) · [trivy-image-results-${SHA} ↗](${RUN_URL}#artifacts) |"
+        } >> "$GITHUB_STEP_SUMMARY"
