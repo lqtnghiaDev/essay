@@ -78,7 +78,7 @@ jobs:
           NODE_VERSION: ${{ inputs.node-version }}
 
       - name: Notify DevSec Agent
-        if: always() && secrets.DEVSEC_AGENT_URL != ''
+        if: always()
         shell: bash
         env:
           DEVSEC_AGENT_URL: ${{ secrets.DEVSEC_AGENT_URL }}
