@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(xxd)",
+      "Bash(yamllint .github/workflows/build-next.yml)",
+      "Skill(code-review:code-review)",
+      "Bash(python3 *)"
+    ]
+  }
+}

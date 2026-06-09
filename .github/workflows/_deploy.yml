@@ -1,7 +1,8 @@
 name: Deploy (reusable)
 
 # Reusable workflow — called by environment-specific workflows.
-# Pulls the already-built ECR images and deploys them to ECS.
+# Pulls the already-built ECR images, deploys them to ECS, then optionally
+# runs DAST and performance checks against the live URL.
 on:
   workflow_call:
     inputs:
@@ -51,25 +52,47 @@ on:
         required: false
         type: string
         default: frontend
+      run-post-checks:
+        description: Run DAST and performance tests after deploy
+        required: false
+        type: boolean
+        default: false
+      app-url:
+        description: Live URL of the deployed application (required when run-post-checks is true)
+        required: false
+        type: string
+        default: ""
+      k6-script:
+        description: Path to k6 test script
+        required: false
+        type: string
+        default: "fe/k6/load-test.js"
     secrets:
       aws-oidc-role:
         description: IAM role ARN to assume via OIDC
         required: true
+      k6-cloud-token:
+        description: Grafana Cloud k6 token for result upload (optional)
+        required: false
 
 jobs:
   deploy:
-    name: Deploy → ${{ inputs.environment }}
+    name: Deploy to ${{ inputs.environment }}
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     permissions:
       id-token: write
       contents: read
+      security-events: write
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
       - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
-          role-to-assume: ${{ vars.aws-oidc-role }}
+          role-to-assume: ${{ secrets.aws-oidc-role }}
           aws-region: ${{ inputs.aws-region }}
 
       # ── Backend ────────────────────────────────────────────────────────────────
@@ -91,7 +114,7 @@ jobs:
           image: ${{ inputs.backend-image-uri }}
 
       - name: Deploy backend to ECS
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
           task-definition: ${{ steps.be-taskdef.outputs.task-definition }}
           service: ${{ inputs.backend-service }}
@@ -117,9 +140,24 @@ jobs:
           image: ${{ inputs.frontend-image-uri }}
 
       - name: Deploy frontend to ECS
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
           task-definition: ${{ steps.fe-taskdef.outputs.task-definition }}
           service: ${{ inputs.frontend-service }}
           cluster: ${{ inputs.ecs-cluster }}
           wait-for-service-stability: true
+
+      # ── Post-deploy checks (staging only) ──────────────────────────────────────
+      - name: DAST scan
+        if: ${{ inputs.run-post-checks && inputs.app-url != '' }}
+        uses: ./.github/actions/dast-scan
+        with:
+          TARGET_URL: ${{ inputs.app-url }}
+
+      - name: Performance test
+        if: ${{ inputs.run-post-checks && inputs.app-url != '' }}
+        uses: ./.github/actions/perf-test
+        with:
+          TARGET_URL: ${{ inputs.app-url }}
+          K6_SCRIPT: ${{ inputs.k6-script }}
+          K6_CLOUD_TOKEN: ${{ secrets.k6-cloud-token }}

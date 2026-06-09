@@ -1,0 +1,166 @@
+name: SCA + SAST Security Scan
+description: Trivy (fs) · Snyk (SCA) · Semgrep (SAST)
+
+inputs:
+  WORKING_DIRECTORY:
+    description: "Working directory to scan"
+    required: false
+    default: "frontend"
+  SNYK_TOKEN:
+    description: "Snyk API token"
+    required: true
+  TRIVY_SEVERITY:
+    description: "Trivy severity levels to report"
+    required: false
+    default: "CRITICAL,HIGH"
+  NODE_VERSION:
+    description: "Node.js version for installing dependencies before Snyk scan"
+    required: false
+    default: "22"
+  INSTALL_FLAGS:
+    description: "Extra flags passed to npm ci (e.g. --legacy-peer-deps)"
+    required: false
+    default: ""
+  SEMGREP_RULES:
+    description: "Semgrep ruleset config"
+    required: false
+    default: "p/typescript"
+
+runs:
+  using: composite
+  steps:
+    # ── Trivy — dependency & misconfiguration scan ───────────────────────────
+    - name: Run Trivy filesystem scan
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: "fs"
+        scan-ref: ${{ inputs.WORKING_DIRECTORY }}
+        format: "table"
+        severity: ${{ inputs.TRIVY_SEVERITY }}
+        # exit-code: "1"
+
+    - name: Run Trivy filesystem scan (SARIF)
+      uses: aquasecurity/trivy-action@master
+      if: always()
+      with:
+        scan-type: "fs"
+        scan-ref: ${{ inputs.WORKING_DIRECTORY }}
+        format: "sarif"
+        output: "trivy-fs-results.sarif"
+        severity: ${{ inputs.TRIVY_SEVERITY }}
+
+    - name: Upload Trivy SARIF
+      uses: github/codeql-action/upload-sarif@v4
+      if: always()
+      with:
+        sarif_file: "trivy-fs-results.sarif"
+        category: "trivy-fs"
+
+    - name: Upload Trivy FS artifact
+      uses: actions/upload-artifact@v7
+      if: always()
+      with:
+        name: trivy-fs-results-${{ github.sha }}
+        path: trivy-fs-results.sarif
+        retention-days: 7
+
+    # ── Snyk — SCA (dependency vulnerabilities) ──────────────────────────────
+    - name: Setup Node.js for Snyk
+      uses: actions/setup-node@v6
+      with:
+        node-version: ${{ inputs.NODE_VERSION }}
+
+    - name: Install dependencies for Snyk
+      shell: bash
+      run: npm ci --prefix ${{ inputs.WORKING_DIRECTORY }} ${{ inputs.INSTALL_FLAGS }}
+
+    - name: Run Snyk SCA scan
+      uses: snyk/actions/node@0.4.0
+      continue-on-error: true
+      env:
+        SNYK_TOKEN: ${{ inputs.SNYK_TOKEN }}
+      with:
+        json: true
+        args: --severity-threshold=high --file=${{ inputs.WORKING_DIRECTORY }}/package.json
+
+    - name: Convert Snyk JSON to HTML
+      if: always()
+      shell: bash
+      run: |
+        npx snyk-to-html -i snyk.json -o snyk-report.html
+
+    - name: Upload Snyk HTML report
+      if: always()
+      uses: actions/upload-artifact@v7
+      with:
+        name: snyk-report-${{ github.sha }}
+        path: snyk-report.html
+        retention-days: 7
+
+    # ── Semgrep — SAST (static application security testing) ────────────────
+    - name: Install Semgrep
+      shell: bash
+      run: pip install semgrep --quiet
+
+    - name: Run Semgrep SAST scan
+      shell: bash
+      continue-on-error: true
+      run: |
+        set +e
+        semgrep scan \
+          --config "${{ inputs.SEMGREP_RULES }}" \
+          --sarif \
+          --output semgrep-results.sarif \
+          "${{ inputs.WORKING_DIRECTORY }}"
+        EXIT_CODE=$?
+        set -e
+        # Exit 0 = no findings; Exit 1 = findings found; Exit 2+ = scan error
+        echo "Semgrep exit code: ${EXIT_CODE}"
+        if [ ! -f semgrep-results.sarif ]; then
+          echo "::warning::semgrep-results.sarif not produced (exit ${EXIT_CODE}), writing empty SARIF"
+          echo '{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"Semgrep","rules":[]}},"results":[]}]}' \
+            > semgrep-results.sarif
+        else
+          FINDINGS=$(python3 -c "import json; d=json.load(open('semgrep-results.sarif')); print(sum(len(r.get('results',[])) for r in d.get('runs',[])))" 2>/dev/null || echo "?")
+          echo "Semgrep findings: ${FINDINGS}"
+        fi
+
+    - name: Upload Semgrep SARIF
+      uses: github/codeql-action/upload-sarif@v4
+      if: always()
+      continue-on-error: true
+      with:
+        sarif_file: semgrep-results.sarif
+        category: semgrep-sast
+
+    - name: Upload Semgrep artifact
+      uses: actions/upload-artifact@v7
+      if: always()
+      with:
+        name: semgrep-results-${{ github.sha }}
+        path: semgrep-results.sarif
+        retention-days: 7
+
+    # ── Summary ──────────────────────────────────────────────────────────────
+    - name: SCA + SAST scan summary
+      if: always()
+      shell: bash
+      env:
+        SERVER_URL: ${{ github.server_url }}
+        REPOSITORY: ${{ github.repository }}
+        RUN_ID: ${{ github.run_id }}
+        SHA: ${{ github.sha }}
+        SEVERITY: ${{ inputs.TRIVY_SEVERITY }}
+        RULES: ${{ inputs.SEMGREP_RULES }}
+      run: |
+        RUN_URL="${SERVER_URL}/${REPOSITORY}/actions/runs/${RUN_ID}"
+        CODESCAN_URL="${SERVER_URL}/${REPOSITORY}/security/code-scanning"
+        {
+          echo "## SCA + SAST Security Scan"
+          echo ""
+          echo "| Tool | Type | Report |"
+          echo "|------|------|--------|"
+          echo "| Trivy | **FS scan** — npm deps in source code (${SEVERITY}) | [Code Scanning ↗ (category: trivy-fs)](${CODESCAN_URL}?query=tool%3ATrivy) · [trivy-fs-results-${SHA} ↗](${RUN_URL}#artifacts) |"
+          echo "| Snyk | SCA — npm deps | [snyk-report-${SHA} ↗](${RUN_URL}#artifacts) |"
+          echo "| Semgrep | SAST — static code analysis (${RULES}) | [Code Scanning ↗ (category: semgrep-sast)](${CODESCAN_URL}?query=tool%3ASemgrep) · [semgrep-results-${SHA} ↗](${RUN_URL}#artifacts) |"
+        } >> "$GITHUB_STEP_SUMMARY"

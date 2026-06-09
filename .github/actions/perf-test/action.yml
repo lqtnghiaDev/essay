@@ -1,0 +1,71 @@
+name: Performance Test (k6)
+description: Runs k6 load test against a deployed URL
+
+inputs:
+  TARGET_URL:
+    description: "URL of the deployed application to test"
+    required: true
+  K6_SCRIPT:
+    description: "Path to k6 test script"
+    required: false
+    default: "frontend/k6/load-test.js"
+  K6_CLOUD_TOKEN:
+    description: "Grafana Cloud k6 token for result upload (optional)"
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Install k6
+      shell: bash
+      run: |
+        curl -fsSL https://dl.k6.io/key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/k6-archive-keyring.gpg
+        echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+        sudo apt-get update && sudo apt-get install -y k6
+
+    - name: Run k6 load test
+      id: k6
+      shell: bash
+      env:
+        K6_CLOUD_TOKEN: ${{ inputs.K6_CLOUD_TOKEN }}
+      run: |
+        K6_CMD="k6 run"
+        if [ -n "$K6_CLOUD_TOKEN" ]; then
+          K6_CMD="k6 cloud run"
+        fi
+
+        $K6_CMD \
+          --env TARGET_URL=${{ inputs.TARGET_URL }} \
+          --out json=k6-results.json \
+          ${{ inputs.K6_SCRIPT }} | tee k6-output.txt
+
+    - name: Upload k6 results
+      if: always()
+      uses: actions/upload-artifact@v7
+      with:
+        name: k6-results-${{ github.sha }}
+        path: |
+          k6-results.json
+          k6-summary.json
+        retention-days: 7
+
+    - name: Performance test summary
+      if: always()
+      shell: bash
+      run: |
+        echo "## Performance Test (k6)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- **Target:** ${{ inputs.TARGET_URL }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Script:** ${{ inputs.K6_SCRIPT }}" >> $GITHUB_STEP_SUMMARY
+        if [ -f k6-summary.json ]; then
+          P95=$(node -e "const d=require('./k6-summary.json'); console.log(Math.round(d.metrics.http_req_duration.values['p(95)']))")
+          REQS=$(node -e "const d=require('./k6-summary.json'); console.log(d.metrics.http_reqs.values.count)")
+          FAIL=$(node -e "const d=require('./k6-summary.json'); console.log((d.metrics.http_req_failed.values.rate*100).toFixed(2))")
+          echo "- **p95 latency:** ${P95}ms" >> $GITHUB_STEP_SUMMARY
+          echo "- **Total requests:** ${REQS}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Error rate:** ${FAIL}%" >> $GITHUB_STEP_SUMMARY
+        fi
+        if [ -n "${{ inputs.K6_CLOUD_TOKEN }}" ]; then
+          echo "- **Results:** uploaded to Grafana Cloud k6" >> $GITHUB_STEP_SUMMARY
+        fi

@@ -1,0 +1,169 @@
+name: Build
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        description: "App directory (e.g. be, fe)"
+        required: true
+        type: string
+      install-flags:
+        description: "Extra flags passed to npm ci"
+        required: false
+        type: string
+        default: ""
+      node-version:
+        description: "Node.js version"
+        required: false
+        type: string
+        default: "22"
+      enable-sentry:
+        description: "Create a Sentry release after tests (frontend only)"
+        required: false
+        type: boolean
+        default: false
+      sentry-environment:
+        description: "Sentry environment (e.g. staging, production)"
+        required: false
+        type: string
+        default: "staging"
+      sentry-org:
+        description: "Sentry organization slug (not sensitive — use vars.SENTRY_ORG)"
+        required: false
+        type: string
+        default: ""
+      sentry-project:
+        description: "Sentry project slug (not sensitive — use vars.SENTRY_PROJECT_FRONTEND)"
+        required: false
+        type: string
+        default: ""
+    secrets:
+      SNYK_TOKEN:
+        required: false
+      SENTRY_AUTH_TOKEN:
+        required: false # required khi enable-sentry: true — set tại Sentry > Settings > Developer Settings > Internal Integrations
+
+permissions:
+  contents: read
+  actions: write
+  checks: read
+  security-events: write
+
+jobs:
+  # ── Lint ─────────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node.js ${{ inputs.node-version }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci ${{ inputs.install-flags }}
+
+      - name: Lint
+        continue-on-error: true
+        run: npm run lint
+
+  # ── Unit tests & coverage ────────────────────────────────────────────────────
+  test:
+    name: Unit tests & coverage
+    needs: [lint]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node.js ${{ inputs.node-version }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci ${{ inputs.install-flags }}
+
+      - name: Run unit tests with coverage
+        continue-on-error: true
+        run: |
+          npm run test:coverage
+          COVERAGE="0"
+          if [ -f coverage/coverage-summary.json ]; then
+            COVERAGE=$(node -e "const c = require('./coverage/coverage-summary.json'); console.log(c.total.lines.pct)")
+          fi
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          {
+            echo "## Unit Tests"
+            echo ""
+            echo "- **Coverage:** ${COVERAGE}%"
+            echo "- **Report:** [coverage-report-${{ github.sha }} ↗](${RUN_URL}#artifacts)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-report-${{ github.sha }}
+          path: ${{ inputs.working-directory }}/coverage/
+          retention-days: 7
+
+  # ── Sentry release (opt-in, frontend only) ────────────────────────────────────
+  sentry:
+    name: Sentry release
+    needs: [test]
+    if: inputs.enable-sentry
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node.js ${{ inputs.node-version }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci ${{ inputs.install-flags }}
+
+      - name: Build for sourcemaps
+        run: npm run build
+
+      - name: Create Sentry release
+        uses: getsentry/action-release@v3
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ inputs.sentry-org }}
+          SENTRY_PROJECT: ${{ inputs.sentry-project }}
+        with:
+          environment: ${{ inputs.sentry-environment }}
+          release: ${{ github.sha }}
+          sourcemaps: ${{ inputs.working-directory }}/.next/static/chunks
+          url_prefix: ~/_next/static/chunks
+          ignore_missing: true

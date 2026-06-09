@@ -1,0 +1,91 @@
+name: DAST Scan
+description: OWASP ZAP (baseline) · Nuclei (template-based)
+
+inputs:
+  TARGET_URL:
+    description: "URL of the deployed application to scan"
+    required: true
+  ZAP_RULES_CONFIG:
+    description: "Path to ZAP rules configuration file (optional)"
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    # ── OWASP ZAP — baseline passive scan ───────────────────────────────────
+    - name: Run OWASP ZAP Baseline Scan (default rules)
+      if: ${{ inputs.ZAP_RULES_CONFIG == '' }}
+      uses: zaproxy/action-baseline@v0.14.0
+      with:
+        target: ${{ inputs.TARGET_URL }}
+        cmd_options: "-a -j"
+        allow_issue_writing: false
+
+    - name: Run OWASP ZAP Baseline Scan (custom rules)
+      if: ${{ inputs.ZAP_RULES_CONFIG != '' }}
+      uses: zaproxy/action-baseline@v0.14.0
+      with:
+        target: ${{ inputs.TARGET_URL }}
+        rules_file_name: ${{ inputs.ZAP_RULES_CONFIG }}
+        cmd_options: "-a -j"
+        allow_issue_writing: false
+
+    - name: Upload ZAP report
+      if: always()
+      uses: actions/upload-artifact@v7
+      with:
+        name: zap-report-${{ github.sha }}
+        path: report_html.html
+        retention-days: 7
+
+    # ── Nuclei — template-based DAST scan ────────────────────────────────────
+    - name: Run Nuclei DAST scan
+      uses: projectdiscovery/nuclei-action@v3
+      continue-on-error: true
+      with:
+        target: ${{ inputs.TARGET_URL }}
+        flags: >-
+          -sarif-export nuclei-results.sarif
+          -tags exposures,misconfig,technologies
+          -duc
+
+    - name: Upload Nuclei SARIF
+      uses: github/codeql-action/upload-sarif@v4
+      if: always()
+      continue-on-error: true
+      with:
+        sarif_file: nuclei-results.sarif
+        category: nuclei-dast
+
+    - name: Upload Nuclei artifact
+      uses: actions/upload-artifact@v7
+      if: always()
+      with:
+        name: nuclei-results-${{ github.sha }}
+        path: nuclei-results.sarif
+        retention-days: 7
+
+    # ── Summary ──────────────────────────────────────────────────────────────
+    - name: DAST scan summary
+      if: always()
+      shell: bash
+      env:
+        SERVER_URL: ${{ github.server_url }}
+        REPOSITORY: ${{ github.repository }}
+        RUN_ID: ${{ github.run_id }}
+        SHA: ${{ github.sha }}
+        TARGET_URL: ${{ inputs.TARGET_URL }}
+      run: |
+        RUN_URL="${SERVER_URL}/${REPOSITORY}/actions/runs/${RUN_ID}"
+        CODESCAN_URL="${SERVER_URL}/${REPOSITORY}/security/code-scanning"
+        {
+          echo "## DAST Scan"
+          echo ""
+          echo "**Target:** \`${TARGET_URL}\`"
+          echo ""
+          echo "| Tool | Type | Report |"
+          echo "|------|------|--------|"
+          echo "| OWASP ZAP | Baseline passive | [zap-report-${SHA::7} ↗](${RUN_URL}#artifacts) |"
+          echo "| Nuclei | Template-based (exposures, misconfig) | [Code Scanning ↗](${CODESCAN_URL}?query=tool%3ANuclei) · [nuclei-results-${SHA::7} ↗](${RUN_URL}#artifacts) |"
+        } >> "$GITHUB_STEP_SUMMARY"

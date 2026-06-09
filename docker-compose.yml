@@ -15,11 +15,6 @@ services:
         required: false
     ports:
       - "3001:3000"
-    environment:
-      OTEL_ENABLED: "true"
-      OTEL_SERVICE_NAME: internship-management-be
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
-      LOG_LEVEL: info
     healthcheck:
       test: ["CMD", "node", "-e",
         "require('net').createConnection(3000,'localhost').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))"]

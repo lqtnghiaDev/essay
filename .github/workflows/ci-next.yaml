@@ -1,0 +1,105 @@
+name: Frontend CI
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - "fe/**"
+      - ".github/workflows/ci-next.yaml"
+      - ".github/workflows/build.yaml"
+      - ".github/workflows/resolve-env.yaml"
+      - ".github/actions/build-push-ecr/**"
+      - ".github/actions/sca-scan/**"
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - "fe/**"
+      - ".github/workflows/ci-next.yaml"
+      - ".github/workflows/build.yaml"
+      - ".github/workflows/resolve-env.yaml"
+      - ".github/actions/build-push-ecr/**"
+      - ".github/actions/sca-scan/**"
+  workflow_dispatch:
+
+concurrency:
+  group: ci-next-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  deployments: read
+  pull-requests: read
+  repository-projects: read
+  actions: write
+  checks: read
+  contents: write
+  packages: write
+  id-token: write
+  security-events: write
+
+env:
+  BUILD_CONTEXT: ./fe
+  BUILD_DOCKERFILE: ./fe/Dockerfile
+  BUILD_ARGS: |
+    NEXT_PUBLIC_API_BASE_URL=https://api.duychien.shop
+
+jobs:
+  # ── Resolve variables & image tag ────────────────────────────────────────────
+  resolve:
+    name: Resolve environment
+    uses: ./.github/workflows/resolve-env.yaml
+    with:
+      prefix: fe
+
+  # ── Lint + test + Sentry (reusable) ──────────────────────────────────────────
+  build:
+    name: Frontend build
+    needs: [resolve]
+    uses: ./.github/workflows/build.yaml
+    with:
+      working-directory: fe
+      enable-sentry: true
+      sentry-environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+      sentry-org: ${{ needs.resolve.outputs.sentry-org }}
+      sentry-project: ${{ needs.resolve.outputs.sentry-project-frontend }}
+    secrets:
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+
+  # ── Security scans (parallel) ─────────────────────────────────────────────────
+  security:
+    name: Security scans
+    uses: ./.github/workflows/security.yml
+    with:
+      working-directory: fe
+    secrets:
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+  # ── Build & push Docker image ─────────────────────────────────────────────────
+  docker:
+    name: Build & push frontend image
+    needs: [resolve, build, security]
+    environment: HUB
+    runs-on: ubuntu-latest
+    outputs:
+      image-uri: ${{ steps.docker-build.outputs.image-uri }}
+      image-tag: ${{ needs.resolve.outputs.image-tag }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Build & push frontend image to ECR
+        id: docker-build
+        uses: ./.github/actions/build-push-ecr
+        with:
+          aws-region: ${{ needs.resolve.outputs.region }}
+          aws-oidc-role: ${{ vars.AWS_OIDC_ROLE }}
+          ecr-repository: ${{ needs.resolve.outputs.ecr-repository }}
+          image-tag: ${{ needs.resolve.outputs.image-tag }}
+          tag-latest: ${{ github.ref_name == 'main' && 'true' || 'false' }}
+          context: ${{ env.BUILD_CONTEXT }}
+          dockerfile: ${{ env.BUILD_DOCKERFILE }}
+          build-args: ${{ env.BUILD_ARGS }}

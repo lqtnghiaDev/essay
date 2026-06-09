@@ -10,7 +10,7 @@ env:
   AWS_REGION: ap-southeast-1
 
 jobs:
-  # ── Build backend ────────────────────────────────────────────────────────────
+  # ── Build backend ────────────────────────────────────────────
   build-backend:
     name: Build backend image
     runs-on: ubuntu-latest
@@ -23,7 +23,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Build & push backend to ECR
         id: build
@@ -36,7 +36,7 @@ jobs:
           context: ./be
           dockerfile: ./be/Dockerfile
 
-  # ── Build frontend ───────────────────────────────────────────────────────────
+  # ── Build frontend ───────────────────────────────────────────
   build-frontend:
     name: Build frontend image
     runs-on: ubuntu-latest
@@ -49,7 +49,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Build & push frontend to ECR
         id: build
@@ -63,7 +63,41 @@ jobs:
           dockerfile: ./fe/Dockerfile
           build-args: NEXT_PUBLIC_API_BASE_URL=${{ vars.NEXT_PUBLIC_API_BASE_URL_PRODUCTION }}
 
-  # ── Deploy to production (requires approval gate on the environment) ─────────
+  # ── Build frontend sourcemaps for Sentry ────────────────────────────────────
+  build-sourcemaps:
+    name: Build frontend sourcemaps
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: fe/package-lock.json
+
+      - name: Install dependencies
+        working-directory: fe
+        run: npm ci
+
+      - name: Build with sourcemaps
+        working-directory: fe
+        env:
+          NEXT_PUBLIC_API_BASE_URL: ${{ vars.NEXT_PUBLIC_API_BASE_URL_PRODUCTION }}
+          NEXT_PUBLIC_SENTRY_RELEASE: ${{ github.ref_name }}
+        run: npm run build
+
+      - name: Upload sourcemaps artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: fe-sourcemaps-${{ github.ref_name }}
+          path: fe/.next/static/
+          retention-days: 1
+
+  # ── Deploy to production (requires approval gate on the environment) ─────
   deploy-production:
     name: Deploy to production
     needs:
@@ -82,3 +116,25 @@ jobs:
       frontend-task-definition: ${{ vars.ECS_FRONTEND_TASKDEF_PRODUCTION }}
     secrets:
       aws-oidc-role: ${{ vars.AWS_OIDC_ROLE_PRODUCTION }}
+
+  # ── Sentry release + sourcemap upload ───────────────────────────────────────
+  sentry-release:
+    name: Sentry release
+    runs-on: ubuntu-latest
+    needs:
+      - deploy-production
+      - build-sourcemaps
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Create Sentry release
+        uses: ./.github/actions/sentry-release
+        with:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+          ARTIFACT_NAME: fe-sourcemaps-${{ github.ref_name }}
+          VERSION: ${{ github.ref_name }}
+          ENVIRONMENT: production

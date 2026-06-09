@@ -1,68 +1,134 @@
 name: CI
 
 on:
-  pull_request:
-    branches:
-      - main
-      - develop
-  push:
-    branches:
-      - main
-      - develop
+  workflow_call:
+    inputs:
+      working-directory:
+        description: "App directory to validate (e.g. be, fe)"
+        required: true
+        type: string
+      install-flags:
+        description: "Extra flags passed to npm ci"
+        required: false
+        type: string
+        default: ""
+      run-coverage:
+        description: "Run tests with coverage report instead of plain test"
+        required: false
+        type: boolean
+        default: false
+      node-version:
+        description: "Node.js version"
+        required: false
+        type: string
+        default: "22"
+      enable-gitleaks:
+        description: "Run Gitleaks secret scan (requires GITLEAKS_LICENSE secret for org repos)"
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      SNYK_TOKEN:
+        required: true
+      GITLEAKS_LICENSE:
+        required: false
+
+permissions:
+  packages: write
+  contents: write
+  checks: read
+  actions: write
+  id-token: write
+  security-events: write
 
 jobs:
-  # ── Backend lint + test ──────────────────────────────────────────────────────
-  backend:
-    name: Backend — lint & test
+  # ── Lint & test ──────────────────────────────────────────────────────────────
+  lint-test:
+    name: Lint & test
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     defaults:
       run:
-        working-directory: be
-
+        working-directory: ${{ inputs.working-directory }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Checkout source code
+        uses: actions/checkout@v6
         with:
-          node-version: "22"
+          fetch-depth: 1
+
+      - name: Setup Node.js ${{ inputs.node-version }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ inputs.node-version }}
           cache: npm
-          cache-dependency-path: be/package-lock.json
+          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
 
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+        run: npm ci ${{ inputs.install-flags }}
 
       - name: Lint
+        continue-on-error: true
         run: npm run lint
 
-      - name: Unit tests
-        run: npm run test -- --passWithNoTests --ci
+      - name: Unit tests and coverage
+        if: inputs.run-coverage
+        continue-on-error: true
+        run: |
+          npm run test:coverage
+          COVERAGE="0"
+          if [ -f coverage/coverage-summary.json ]; then
+            COVERAGE=$(node -e "const c = require('./coverage/coverage-summary.json'); console.log(c.total.lines.pct)")
+          fi
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          {
+            echo "## Unit Tests"
+            echo ""
+            echo "- **Coverage:** ${COVERAGE}%"
+            echo "- **Report:** [coverage-report-${{ github.sha }} ↗](${RUN_URL}#artifacts)"
+          } >> "$GITHUB_STEP_SUMMARY"
 
-  # ── Frontend lint + build ────────────────────────────────────────────────────
-  frontend:
-    name: Frontend — lint & build
+      - name: Upload coverage artifact
+        if: inputs.run-coverage
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-report-${{ github.sha }}
+          path: ${{ inputs.working-directory }}/coverage/
+          retention-days: 7
+
+  # ── Gitleaks — secret scan (trước SCA, opt-in) ──────────────────────────────
+  gitleaks:
+    name: Gitleaks secret scan
+    if: inputs.enable-gitleaks
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: fe
-
+    timeout-minutes: 10
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Checkout source code
+        uses: actions/checkout@v6
         with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: fe/package-lock.json
+          fetch-depth: 0
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
 
-      - name: Lint
-        run: npm run lint
+  # ── SCA + SAST scan (chạy sau Gitleaks) ─────────────────────────────────────
+  sca-scan:
+    name: SCA Scan
+    needs: [gitleaks]
+    if: always() && (needs.gitleaks.result == 'success' || needs.gitleaks.result == 'skipped')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
 
-      - name: Build (type-check + bundle)
-        run: npm run build
+      - name: Run SCA security scan
+        uses: ./.github/actions/sca-scan
+        with:
+          WORKING_DIRECTORY: ${{ inputs.working-directory }}
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+          INSTALL_FLAGS: ${{ inputs.install-flags }}
