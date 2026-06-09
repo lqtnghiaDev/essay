@@ -30,3 +30,5 @@ Single `ARCHITECTURE.md` at repo root with embedded Mermaid diagrams. Covers sys
 ## Output
 
 `ARCHITECTURE.md` at repo root.
+
+---
