@@ -16,7 +16,7 @@ runs:
     # ── OWASP ZAP — baseline passive scan ───────────────────────────────────
     - name: Run OWASP ZAP Baseline Scan (default rules)
       if: ${{ inputs.ZAP_RULES_CONFIG == '' }}
-      uses: zaproxy/action-baseline@v0.14.0
+      uses: zaproxy/action-baseline@v0.15.0
       with:
         target: ${{ inputs.TARGET_URL }}
         cmd_options: "-a -j"
@@ -24,7 +24,7 @@ runs:
 
     - name: Run OWASP ZAP Baseline Scan (custom rules)
       if: ${{ inputs.ZAP_RULES_CONFIG != '' }}
-      uses: zaproxy/action-baseline@v0.14.0
+      uses: zaproxy/action-baseline@v0.15.0
       with:
         target: ${{ inputs.TARGET_URL }}
         rules_file_name: ${{ inputs.ZAP_RULES_CONFIG }}

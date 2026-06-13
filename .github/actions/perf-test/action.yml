@@ -30,6 +30,12 @@ runs:
       env:
         K6_CLOUD_TOKEN: ${{ inputs.K6_CLOUD_TOKEN }}
       run: |
+        # Slug from the script filename (e.g. k6/stress-test.js -> stress-test)
+        # so parallel matrix legs upload distinctly named artifacts — v4+
+        # artifact names are immutable and a duplicate name would error.
+        slug="$(basename "${{ inputs.K6_SCRIPT }}" .js)"
+        echo "slug=${slug}" >> "$GITHUB_OUTPUT"
+
         K6_CMD="k6 run"
         if [ -n "$K6_CLOUD_TOKEN" ]; then
           K6_CMD="k6 cloud run"
@@ -43,7 +49,7 @@ runs:
       if: always()
       uses: actions/upload-artifact@v7
       with:
-        name: k6-results-${{ github.sha }}
+        name: k6-results-${{ steps.k6.outputs.slug }}-${{ github.sha }}
         path: |
           k6-*report.html
           k6-*summary.csv
