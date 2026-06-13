@@ -158,10 +158,10 @@ jobs:
         with:
           TARGET_URL: ${{ needs.resolve.outputs.app-url-dev }}
 
-  # ── Performance test, runs after DAST passes ──────────────────────────────────
+  # ── Performance test, runs in parallel with DAST ──────────────────────────────
   performance:
     name: Performance (dev)
-    needs: [resolve, dast]
+    needs: [resolve] # deploy-dev
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -175,19 +175,19 @@ jobs:
           K6_CLOUD_TOKEN: ${{ secrets.K6_CLOUD_TOKEN }}
 
   # ── Deploy to qa (stub: no separate QA account yet) ──────────────────────────
-  # deploy-qa:
-  #   name: Deploy frontend to qa
-  #   needs: [deploy-dev]
-  #   if: >-
-  #     ${{
-  #       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-  #       (github.event_name == 'push' && github.ref == 'refs/heads/feature/*') ||
-  #       github.event_name == 'workflow_dispatch'
-  #     }}
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Placeholder deploy
-  #       run: echo "deploy qa"
+  deploy-qa:
+    name: Deploy frontend to qa
+    needs: [resolve, performance, dast] # deploy-dev
+    if: >-
+      ${{
+        (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+        (github.event_name == 'push' && github.ref == 'refs/heads/feature/*') ||
+        github.event_name == 'workflow_dispatch'
+      }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Placeholder deploy
+        run: echo "deploy qa"
 
   # Real QA deploy — uncomment once a dedicated QA account/vars are available.
   # deploy-qa:
