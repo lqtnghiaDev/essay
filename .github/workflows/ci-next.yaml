@@ -110,7 +110,11 @@ jobs:
   deploy-dev:
     name: Deploy frontend to dev
     needs: [resolve, docker]
-    if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/develop') || github.event_name == 'workflow_dispatch' }}
+    if: >-
+      ${{
+        (github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
+        github.event_name == 'workflow_dispatch'
+      }}
     uses: ./.github/workflows/_deploy_eks.yml
     with:
       environment: dev
@@ -150,7 +154,11 @@ jobs:
   deploy-qa:
     name: Deploy frontend to qa
     needs: [deploy-dev]
-    if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/develop') || github.event_name == 'workflow_dispatch' }}
+    if: >-
+      ${{
+        (github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
+        github.event_name == 'workflow_dispatch'
+      }}
     runs-on: ubuntu-latest
     steps:
       - name: Placeholder deploy
@@ -160,7 +168,11 @@ jobs:
   # deploy-qa:
   #   name: Deploy frontend to qa
   #   needs: [resolve, docker, deploy-dev]
-  #   if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/develop') || github.event_name == 'workflow_dispatch' }}
+  #   if: >-
+  #     ${{
+  #       (github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
+  #       github.event_name == 'workflow_dispatch'
+  #     }}
   #   uses: ./.github/workflows/_deploy_eks.yml
   #   with:
   #     environment: qa
