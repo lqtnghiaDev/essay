@@ -15,18 +15,19 @@ runs:
   steps:
     # ── OWASP ZAP — baseline passive scan ───────────────────────────────────
     # cmd_options:
-    #   -a       include the alpha passive scan rules (wider coverage)
-    #   -m 5     spider for up to 5 minutes so the app is actually crawled
-    #   -T 5     wait up to 5 min for ZAP to start + passive scan to finish
-    #   -I       do not return a non-zero exit on warnings (findings != failure)
-    # The Ajax spider (-j) is intentionally omitted: on v0.15.0's newer ZAP it
-    # crashes the automation plan with "msg is null", leaving no report at all.
+    #   -a         include the alpha passive scan rules (wider coverage)
+    #   -m 5       spider for up to 5 minutes so the app is actually crawled
+    #   -T 5       wait up to 5 min for ZAP to start + passive scan to finish
+    #   -I         do not return a non-zero exit on warnings (findings != failure)
+    #   --autooff  use the legacy scan path, not the automation framework.
+    #              v0.15.0 defaults to --auto, whose plan crashes here with
+    #              "msg is null" / "Failed to access summary file zap_out.json".
     - name: Run OWASP ZAP Baseline Scan (default rules)
       if: ${{ inputs.ZAP_RULES_CONFIG == '' }}
       uses: zaproxy/action-baseline@v0.15.0
       with:
         target: ${{ inputs.TARGET_URL }}
-        cmd_options: "-a -m 5 -T 5 -I"
+        cmd_options: "-a -m 5 -T 5 -I --autooff"
         allow_issue_writing: false
 
     - name: Run OWASP ZAP Baseline Scan (custom rules)
@@ -35,7 +36,7 @@ runs:
       with:
         target: ${{ inputs.TARGET_URL }}
         rules_file_name: ${{ inputs.ZAP_RULES_CONFIG }}
-        cmd_options: "-a -m 5 -T 5 -I"
+        cmd_options: "-a -m 5 -T 5 -I --autooff"
         allow_issue_writing: false
 
     - name: Upload ZAP report
