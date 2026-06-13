@@ -21,21 +21,20 @@ export function iteration() {
   }) || errorRate.add(1);
   pageLoadTrend.add(indexRes.timings.duration);
 
+  // Next.js serves hashed JS chunks under /_next/static; fetch one if the
+  // index references it, to exercise static-asset delivery. Skipped when the
+  // index has none (e.g. the backend root returns a plain string), so the same
+  // script fits both the frontend and backend targets.
   const assetMatch =
-    indexRes.body && indexRes.body.match(/src="(\/assets\/[^"]+\.js)"/);
+    indexRes.body && indexRes.body.match(/(\/_next\/static\/[^"'?]+\.js)/);
   if (assetMatch) {
-    const assetUrl = `${BASE_URL}${assetMatch[1]}`;
-    const assetRes = http.get(assetUrl, { tags: { name: "main_bundle" } });
+    const assetRes = http.get(`${BASE_URL}${assetMatch[1]}`, {
+      tags: { name: "static_chunk" },
+    });
     check(assetRes, {
-      "bundle status is 200": (r) => r.status === 200,
+      "static chunk is 200": (r) => r.status === 200,
     }) || errorRate.add(1);
   }
-
-  const spaRes = http.get(`${BASE_URL}/campaign/1`);
-  check(spaRes, {
-    "SPA route returns 200": (r) => r.status === 200,
-    "SPA route has HTML": (r) => r.body && r.body.includes("<!DOCTYPE"),
-  }) || errorRate.add(1);
 
   sleep(1);
 }
