@@ -44,8 +44,8 @@ runs:
       uses: projectdiscovery/nuclei-action@v3
       continue-on-error: true
       with:
-        target: ${{ inputs.TARGET_URL }}
-        flags: >-
+        args: >-
+          -u ${{ inputs.TARGET_URL }}
           -sarif-export nuclei-results.sarif
           -tags exposures,misconfig,technologies
           -duc

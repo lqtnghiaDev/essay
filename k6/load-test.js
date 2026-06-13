@@ -1,6 +1,8 @@
 import http from "k6/http";
 import { check, sleep } from "k6";
 import { Rate, Trend } from "k6/metrics";
+import { htmlReport } from "https://raw.githubusercontent.com/benc-uk/k6-reporter/main/dist/bundle.js";
+import { textSummary } from "https://jslib.k6.io/k6-summary/0.1.0/index.js";
 
 const errorRate = new Rate("errors");
 const pageLoadTrend = new Trend("page_load_time", true);
@@ -50,19 +52,29 @@ export default function () {
 }
 
 export function handleSummary(data) {
-  const p95 = data.metrics.http_req_duration.values["p(95)"];
+  const d = data.metrics.http_req_duration.values;
   const failRate = data.metrics.http_req_failed.values.rate;
   const totalReqs = data.metrics.http_reqs.values.count;
+  const reqRate = data.metrics.http_reqs.values.rate;
+  const pass = d["p(95)"] < 3000 && failRate < 0.05;
 
-  const summary = {
-    p95_ms: Math.round(p95),
-    error_rate_pct: (failRate * 100).toFixed(2),
-    total_requests: totalReqs,
-    pass: p95 < 3000 && failRate < 0.05,
-  };
+  // Excel-friendly table: one metric per row.
+  const rows = [
+    ["Metric", "Value"],
+    ["Total requests", totalReqs],
+    ["Requests / sec", reqRate.toFixed(2)],
+    ["Avg latency (ms)", Math.round(d.avg)],
+    ["p90 latency (ms)", Math.round(d["p(90)"])],
+    ["p95 latency (ms)", Math.round(d["p(95)"])],
+    ["Max latency (ms)", Math.round(d.max)],
+    ["Error rate (%)", (failRate * 100).toFixed(2)],
+    ["Result", pass ? "PASS" : "FAIL"],
+  ];
+  const csv = rows.map((r) => r.join(",")).join("\n");
 
   return {
-    stdout: JSON.stringify(summary, null, 2),
-    "k6-summary.json": JSON.stringify(data, null, 2),
+    stdout: textSummary(data, { indent: " ", enableColors: true }),
+    "k6-report.html": htmlReport(data),
+    "k6-summary.csv": csv,
   };
 }
