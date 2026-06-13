@@ -80,7 +80,7 @@ jobs:
       SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
   # ── Build & push Docker image ─────────────────────────────────────────────────
-  docker:
+  build-image:
     name: Build & push frontend image
     needs: [resolve, build, security]
     environment: HUB
@@ -107,24 +107,38 @@ jobs:
           build-args: ${{ env.BUILD_ARGS }}
 
   # ── Deploy to dev ─────────────────────────────────────────────────────────────
+  # deploy-dev:
+  #   name: Deploy frontend to dev
+  #   needs: [resolve, build-image]
+  #   if: >-
+  #     ${{
+  #       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+  #       github.event_name == 'workflow_dispatch'
+  #     }}
+  #   uses: ./.github/workflows/_deploy_eks.yml
+  #   with:
+  #     environment: dev
+  #     aws-region: ${{ needs.resolve.outputs.region }}
+  #     eks-cluster: ${{ vars.EKS_CLUSTER_DEV }}
+  #     namespace: ${{ vars.K8S_NAMESPACE_DEV }}
+  #     frontend-image-uri: ${{ needs.build-image.outputs.image-uri }}
+  #     frontend-deployment: ${{ vars.K8S_FRONTEND_DEPLOYMENT_DEV }}
+  #   secrets:
+  #     aws-oidc-role: ${{ vars.AWS_OIDC_ROLE_DEV }}
+
   deploy-dev:
     name: Deploy frontend to dev
-    needs: [resolve, docker]
+    needs: [resolve, build-image]
     if: >-
       ${{
+        (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
         (github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
         github.event_name == 'workflow_dispatch'
       }}
-    uses: ./.github/workflows/_deploy_eks.yml
-    with:
-      environment: dev
-      aws-region: ${{ needs.resolve.outputs.region }}
-      eks-cluster: ${{ vars.EKS_CLUSTER_DEV }}
-      namespace: ${{ vars.K8S_NAMESPACE_DEV }}
-      frontend-image-uri: ${{ needs.docker.outputs.image-uri }}
-      frontend-deployment: ${{ vars.K8S_FRONTEND_DEPLOYMENT_DEV }}
-    secrets:
-      aws-oidc-role: ${{ vars.AWS_OIDC_ROLE_DEV }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Placeholder deploy
+        run: echo "deploy dev"
 
   # ── DAST + performance, dev only ─────────────────────────────────────────────
   post-deploy-checks:
@@ -141,12 +155,12 @@ jobs:
       - name: DAST scan
         uses: ./.github/actions/dast-scan
         with:
-          TARGET_URL: ${{ vars.APP_URL_DEV }}
+          TARGET_URL: ${{ needs.resolve.outputs.app-url-dev }}
 
       - name: Performance test
         uses: ./.github/actions/perf-test
         with:
-          TARGET_URL: ${{ vars.APP_URL_DEV }}
+          TARGET_URL: ${{ needs.resolve.outputs.app-url-dev }}
           K6_SCRIPT: fe/k6/load-test.js
           K6_CLOUD_TOKEN: ${{ secrets.K6_CLOUD_TOKEN }}
 
@@ -156,7 +170,7 @@ jobs:
     needs: [deploy-dev]
     if: >-
       ${{
-        (github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
+        (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
         github.event_name == 'workflow_dispatch'
       }}
     runs-on: ubuntu-latest
@@ -167,10 +181,10 @@ jobs:
   # Real QA deploy — uncomment once a dedicated QA account/vars are available.
   # deploy-qa:
   #   name: Deploy frontend to qa
-  #   needs: [resolve, docker, deploy-dev]
+  #   needs: [resolve, build-image, deploy-dev]
   #   if: >-
   #     ${{
-  #       (github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
+  #       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
   #       github.event_name == 'workflow_dispatch'
   #     }}
   #   uses: ./.github/workflows/_deploy_eks.yml
@@ -179,7 +193,7 @@ jobs:
   #     aws-region: ${{ needs.resolve.outputs.region }}
   #     eks-cluster: ${{ vars.EKS_CLUSTER_QA }}
   #     namespace: ${{ vars.K8S_NAMESPACE_QA }}
-  #     frontend-image-uri: ${{ needs.docker.outputs.image-uri }}
+  #     frontend-image-uri: ${{ needs.build-image.outputs.image-uri }}
   #     frontend-deployment: ${{ vars.K8S_FRONTEND_DEPLOYMENT_QA }}
   #   secrets:
   #     aws-oidc-role: ${{ vars.AWS_OIDC_ROLE_QA }}

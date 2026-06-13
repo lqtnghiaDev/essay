@@ -37,6 +37,7 @@ jobs:
       image-tag: ${{ steps.env.outputs.image-tag }}
       sentry-org: ${{ steps.env.outputs.sentry-org }}
       sentry-project-frontend: ${{ steps.env.outputs.sentry-project-frontend }}
+      app-url-dev: ${{ steps.env.outputs.app-url-dev }}
     steps:
       - name: Resolve variables and image tag
         id: env
@@ -55,3 +56,4 @@ jobs:
           SAFE_REF="$(echo "${REF_NAME}" | sed 's/[^a-zA-Z0-9._-]/-/g')"
           TAG="${PREFIX}-${SAFE_REF}-${SHORT_SHA}"
           echo "image-tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "app-url-dev=http://dev.duychien.shop" >> "$GITHUB_OUTPUT"
