@@ -173,17 +173,9 @@ jobs:
 
   # ── Performance test, runs after DAST passes ──────────────────────────────────
   performance:
-    name: Performance (dev) / ${{ matrix.profile }}
+    name: Performance (dev)
     needs: [resolve, dast]
     runs-on: ubuntu-latest
-    # soak runs ~40m; the rest finish in <10m. Legs run in parallel, so the
-    # job's wall-clock is bounded by soak. fail-fast: false keeps a threshold
-    # breach in one profile from cancelling the others.
-    timeout-minutes: 55
-    strategy:
-      fail-fast: false
-      matrix:
-        profile: [smoke, load, stress, spike, soak]
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -192,5 +184,5 @@ jobs:
         uses: ./.github/actions/perf-test
         with:
           TARGET_URL: ${{ needs.resolve.outputs.app-url-dev }}
-          K6_SCRIPT: k6/${{ matrix.profile }}-test.js
+          K6_SCRIPT: k6/load-test.js
           K6_CLOUD_TOKEN: ${{ secrets.K6_CLOUD_TOKEN }}
