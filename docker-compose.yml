@@ -20,8 +20,13 @@ services:
     ports:
       - "3001:3000"
     healthcheck:
-      test: ["CMD", "node", "-e",
-        "require('net').createConnection(3000,'localhost').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('net').createConnection(3000,'localhost').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))",
+        ]
       interval: 30s
       timeout: 5s
       start_period: 20s
@@ -121,7 +126,8 @@ services:
     image: cr.fluentbit.io/fluent/fluent-bit:3.1.9
     restart: unless-stopped
     user: root
-    command: ["/fluent-bit/bin/fluent-bit", "-c", "/fluent-bit/etc/fluent-bit.conf"]
+    command:
+      ["/fluent-bit/bin/fluent-bit", "-c", "/fluent-bit/etc/fluent-bit.conf"]
     volumes:
       - ./observability/fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
       - ./observability/fluent-bit/parsers.conf:/fluent-bit/etc/parsers.conf:ro
@@ -133,3 +139,5 @@ services:
 volumes:
   chroma_data:
   elasticsearch_data:
+
+  # netsh interface portproxy add v4tov4 listenaddress=0.0.0.0 listenport=80   connectaddress=172.19.6.248 connectport=80
