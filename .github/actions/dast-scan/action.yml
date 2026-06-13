@@ -23,7 +23,6 @@ runs:
         allow_issue_writing: false
 
     - name: Run OWASP ZAP Baseline Scan (custom rules)
-      if: ${{ inputs.ZAP_RULES_CONFIG != '' }}
       uses: zaproxy/action-baseline@v0.14.0
       with:
         target: ${{ inputs.TARGET_URL }}

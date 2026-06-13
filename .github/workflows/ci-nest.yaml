@@ -154,10 +154,10 @@ jobs:
   #   secrets:
   #     aws-oidc-role: ${{ vars.AWS_OIDC_ROLE_QA }}
 
-  # ── DAST + performance, dev only (build-once: same artifact reaches every env) ─
-  post-deploy-checks:
-    name: DAST & performance (dev)
-    needs: [deploy-dev]
+  # ── DAST scan, dev only (build-once: same artifact reaches every env) ─────────
+  dast:
+    name: DAST (dev)
+    needs: [resolve, deploy-dev]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -170,6 +170,15 @@ jobs:
         uses: ./.github/actions/dast-scan
         with:
           TARGET_URL: ${{ needs.resolve.outputs.app-url-dev }}
+
+  # ── Performance test, runs after DAST passes ──────────────────────────────────
+  performance:
+    name: Performance (dev)
+    needs: [resolve, dast]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
 
       - name: Performance test
         uses: ./.github/actions/perf-test
