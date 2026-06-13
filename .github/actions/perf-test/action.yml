@@ -45,9 +45,10 @@ runs:
       with:
         name: k6-results-${{ github.sha }}
         path: |
-          k6-report.html
-          k6-summary.csv
+          k6-*report.html
+          k6-*summary.csv
         retention-days: 7
+        if-no-files-found: ignore
 
     - name: Performance test summary
       if: always()
@@ -57,11 +58,12 @@ runs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "- **Target:** ${{ inputs.TARGET_URL }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Script:** ${{ inputs.K6_SCRIPT }}" >> $GITHUB_STEP_SUMMARY
-        if [ -f k6-summary.csv ]; then
+        CSV=$(ls k6-*summary.csv 2>/dev/null | head -n1)
+        if [ -n "$CSV" ]; then
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
-          tail -n +2 k6-summary.csv | while IFS=, read -r metric value; do
+          tail -n +2 "$CSV" | while IFS=, read -r metric value; do
             echo "| ${metric} | ${value} |" >> $GITHUB_STEP_SUMMARY
           done
         fi
