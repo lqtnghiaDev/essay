@@ -133,7 +133,7 @@ jobs:
       ${{
         (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
         (github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
-        (github.event_name == 'push' && github.ref == 'refs/heads/feature/*') ||
+        (github.event_name == 'pull_request' && startsWith(github.head_ref, 'feature/')) ||
         github.event_name == 'workflow_dispatch'
       }}
     runs-on: ubuntu-latest

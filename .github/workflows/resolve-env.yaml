@@ -56,4 +56,4 @@ jobs:
           SAFE_REF="$(echo "${REF_NAME}" | sed 's/[^a-zA-Z0-9._-]/-/g')"
           TAG="${PREFIX}-${SAFE_REF}-${SHORT_SHA}"
           echo "image-tag=${TAG}" >> "$GITHUB_OUTPUT"
-          echo "app-url-dev=http://dev.duychien.shop" >> "$GITHUB_OUTPUT"
+          echo "app-url-dev=https://cqrttts1-80.asse.devtunnels.ms" >> "$GITHUB_OUTPUT"
