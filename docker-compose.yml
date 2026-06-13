@@ -5,9 +5,13 @@ services:
       context: ./be
       dockerfile: Dockerfile
     restart: unless-stopped
-    # environment:
-    #   # Always overrides .env so the service name resolves inside compose network.
-    #   DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-internship}
+    environment:
+      # Force the in-container port to 3000 so it matches EXPOSE, the healthcheck
+      # and the "3001:3000" mapping. be/.env sets PORT=3001 for local dev (to avoid
+      # clashing with the frontend on 3000); env_file would otherwise leak that here.
+      PORT: 3000
+      # # Always overrides .env so the service name resolves inside compose network.
+      # DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-internship}
     env_file:
       # Provides JWT_SECRET, GEMINI_API_KEY, OPENAI_API_KEY, etc.
       # Copy be/.env.example → be/.env and fill in real values.
@@ -34,7 +38,7 @@ services:
       args:
         # Baked into the JS bundle at build time (NEXT_PUBLIC_* cannot be set at runtime).
         # For production, override with the real backend URL in your CI pipeline.
-        NEXT_PUBLIC_API_BASE_URL: http://localhost:3001
+        NEXT_PUBLIC_API_BASE_URL: http://192.168.1.9:3001
     restart: unless-stopped
     env_file:
       - path: ./fe/.env
@@ -43,7 +47,7 @@ services:
       # Inside Docker network, collector is reachable by service name, not localhost.
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
     ports:
-      - "3000:3000"
+      - "80:3000"
     depends_on:
       backend:
         condition: service_healthy
