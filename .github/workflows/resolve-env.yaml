@@ -43,9 +43,7 @@ jobs:
         env:
           PREFIX: ${{ inputs.prefix }}
           SHA: ${{ github.sha }}
-          EVENT_NAME: ${{ github.event_name }}
-          PR_NUMBER: ${{ github.event.number }}
-          BRANCH: ${{ github.ref_name }}
+          REF_NAME: ${{ github.ref_name }}
           SENTRY_ORG_VAR: ${{ vars.SENTRY_ORG }}
           SENTRY_PROJECT_FE: ${{ vars.SENTRY_PROJECT_FRONTEND }}
         run: |
@@ -54,10 +52,6 @@ jobs:
           echo "sentry-org=${SENTRY_ORG_VAR}" >> "$GITHUB_OUTPUT"
           echo "sentry-project-frontend=${SENTRY_PROJECT_FE}" >> "$GITHUB_OUTPUT"
           SHORT_SHA="${SHA::7}"
-          if [ "${EVENT_NAME}" = "pull_request" ]; then
-            TAG="${PREFIX}-pr-${PR_NUMBER}-${SHORT_SHA}"
-          else
-            SAFE_BRANCH="$(echo "${BRANCH}" | sed 's/[^a-zA-Z0-9._-]/-/g')"
-            TAG="${PREFIX}-${SAFE_BRANCH}-${SHORT_SHA}"
-          fi
+          SAFE_REF="$(echo "${REF_NAME}" | sed 's/[^a-zA-Z0-9._-]/-/g')"
+          TAG="${PREFIX}-${SAFE_REF}-${SHORT_SHA}"
           echo "image-tag=${TAG}" >> "$GITHUB_OUTPUT"

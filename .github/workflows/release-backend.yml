@@ -1,0 +1,77 @@
+name: Release Backend — Promote & Deploy Production
+
+# Triggered on version tags (e.g. v1.2.3).
+# Build-once / deploy-many: the image built by ci-nest on the main push is
+# retagged (no rebuild) and promoted staging -> production.
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  # ── Resolve promotion tags (reuse the image ci-nest built on main) ───────────
+  prepare:
+    name: Resolve promotion tags
+    runs-on: ubuntu-latest
+    outputs:
+      ecr-repository: ${{ steps.tags.outputs.ecr-repository }}
+      source-tag: ${{ steps.tags.outputs.source-tag }}
+      target-tag: ${{ steps.tags.outputs.target-tag }}
+    steps:
+      - name: Compute source/target tags
+        id: tags
+        env:
+          SHA: ${{ github.sha }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          SHORT_SHA="${SHA::7}"
+          echo "ecr-repository=ecr-global-api" >> "$GITHUB_OUTPUT"
+          # Image ci-nest built on the main push for this commit
+          echo "source-tag=be-main-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "target-tag=be-${VERSION}" >> "$GITHUB_OUTPUT"
+
+  # ── Retag backend image for release (no rebuild) ─────────────────────────────
+  retag-backend:
+    name: Retag backend image
+    needs: [prepare]
+    uses: ./.github/workflows/_tag-image.yml
+    with:
+      aws-region: us-east-1
+      ecr-repository: ${{ needs.prepare.outputs.ecr-repository }}
+      source-tag: ${{ needs.prepare.outputs.source-tag }}
+      target-tag: ${{ needs.prepare.outputs.target-tag }}
+    secrets:
+      aws-oidc-role: ${{ vars.AWS_OIDC_ROLE }}
+
+  # ── Deploy backend to staging ────────────────────────────────────────────────
+  deploy-staging-backend:
+    name: Deploy backend to staging
+    needs:
+      - retag-backend
+    uses: ./.github/workflows/_deploy_eks.yml
+    with:
+      environment: staging
+      aws-region: ap-southeast-1
+      eks-cluster: ${{ vars.EKS_CLUSTER_STAGING }}
+      namespace: ${{ vars.K8S_NAMESPACE_STAGING }}
+      backend-image-uri: ${{ needs.retag-backend.outputs.image-uri }}
+      backend-deployment: ${{ vars.K8S_BACKEND_DEPLOYMENT_STAGING }}
+    secrets:
+      aws-oidc-role: ${{ vars.AWS_OIDC_ROLE_STAGING }}
+
+  # ── Deploy backend to production (requires approval gate on the environment) ─────
+  deploy-production-backend:
+    name: Deploy backend to production
+    needs:
+      - retag-backend
+      - deploy-staging-backend
+    uses: ./.github/workflows/_deploy_eks.yml
+    with:
+      environment: production
+      aws-region: ap-southeast-1
+      eks-cluster: ${{ vars.EKS_CLUSTER_PRODUCTION }}
+      namespace: ${{ vars.K8S_NAMESPACE_PRODUCTION }}
+      backend-image-uri: ${{ needs.retag-backend.outputs.image-uri }}
+      backend-deployment: ${{ vars.K8S_BACKEND_DEPLOYMENT_PRODUCTION }}
+    secrets:
+      aws-oidc-role: ${{ vars.AWS_OIDC_ROLE_PRODUCTION }}
