@@ -23,6 +23,7 @@ runs:
         allow_issue_writing: false
 
     - name: Run OWASP ZAP Baseline Scan (custom rules)
+      if: ${{ inputs.ZAP_RULES_CONFIG != '' }}
       uses: zaproxy/action-baseline@v0.14.0
       with:
         target: ${{ inputs.TARGET_URL }}
@@ -49,9 +50,21 @@ runs:
           -tags exposures,misconfig,technologies
           -duc
 
+    - name: Check Nuclei SARIF output
+      id: nuclei-sarif
+      if: always()
+      shell: bash
+      run: |
+        if [ -f nuclei-results.sarif ]; then
+          echo "exists=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "exists=false" >> "$GITHUB_OUTPUT"
+          echo "No nuclei-results.sarif produced — skipping upload."
+        fi
+
     - name: Upload Nuclei SARIF
       uses: github/codeql-action/upload-sarif@v4
-      if: always()
+      if: always() && steps.nuclei-sarif.outputs.exists == 'true'
       continue-on-error: true
       with:
         sarif_file: nuclei-results.sarif
@@ -59,7 +72,7 @@ runs:
 
     - name: Upload Nuclei artifact
       uses: actions/upload-artifact@v7
-      if: always()
+      if: always() && steps.nuclei-sarif.outputs.exists == 'true'
       with:
         name: nuclei-results-${{ github.sha }}
         path: nuclei-results.sarif
