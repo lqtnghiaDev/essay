@@ -58,6 +58,9 @@ runs:
         unzip -o "${tmp}/nuclei.zip" nuclei -d "${tmp}"
         sudo install -m 0755 "${tmp}/nuclei" /usr/local/bin/nuclei
         nuclei -version
+        # Fetch the template repo once. With -disable-update-check on the scan,
+        # Nuclei won't auto-download templates, so a fresh runner has none.
+        nuclei -update-templates
 
     - name: Run Nuclei DAST scan
       shell: bash
