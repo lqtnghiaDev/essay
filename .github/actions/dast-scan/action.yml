@@ -40,15 +40,40 @@ runs:
         retention-days: 7
 
     # ── Nuclei — template-based DAST scan ────────────────────────────────────
+    # Installed and run via shell rather than projectdiscovery/nuclei-action:
+    # marketplace actions with pre/post hooks are not supported when nested in
+    # a local composite action (their cache pre-step is skipped and the post
+    # cache-save races parallel jobs). Running the binary directly also lets us
+    # own the exit code — DAST findings or transient scan errors must not fail
+    # the pipeline (continue-on-error is unreliable inside composite actions).
+    - name: Install Nuclei
+      shell: bash
+      env:
+        NUCLEI_VERSION: "3.9.0"
+      run: |
+        set -euo pipefail
+        tmp="$(mktemp -d)"
+        curl -sSfL -o "${tmp}/nuclei.zip" \
+          "https://github.com/projectdiscovery/nuclei/releases/download/v${NUCLEI_VERSION}/nuclei_${NUCLEI_VERSION}_linux_amd64.zip"
+        unzip -o "${tmp}/nuclei.zip" nuclei -d "${tmp}"
+        sudo install -m 0755 "${tmp}/nuclei" /usr/local/bin/nuclei
+        nuclei -version
+
     - name: Run Nuclei DAST scan
-      uses: projectdiscovery/nuclei-action@v3
-      continue-on-error: true
-      with:
-        args: >-
-          -u ${{ inputs.TARGET_URL }}
-          -sarif-export nuclei-results.sarif
-          -tags exposures,misconfig,technologies
-          -duc
+      shell: bash
+      env:
+        TARGET_URL: ${{ inputs.TARGET_URL }}
+      run: |
+        set +e
+        nuclei \
+          -u "${TARGET_URL}" \
+          -sarif-export nuclei-results.sarif \
+          -tags exposures,misconfig,technologies \
+          -disable-update-check
+        status=$?
+        echo "Nuclei exited with status ${status}"
+        # Findings and transient scan errors are non-blocking for the pipeline.
+        exit 0
 
     - name: Check Nuclei SARIF output
       id: nuclei-sarif
