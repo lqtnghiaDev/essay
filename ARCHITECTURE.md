@@ -641,7 +641,7 @@ flowchart TD
 k6 runs automatically after every staging deploy via `_deploy.yml`.
 
 ```
-fe/k6/load-test.js         ← test script
+k6/{smoke,load,stress,spike,soak}-test.js  ← test scripts (one per profile)
 TARGET_URL                 ← staging app URL
 K6_CLOUD_TOKEN             ← optional: upload to Grafana Cloud k6
 ```

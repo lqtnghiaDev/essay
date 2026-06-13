@@ -75,7 +75,7 @@ on:
         description: Path to k6 test script
         required: false
         type: string
-        default: "fe/k6/load-test.js"
+        default: "k6/load-test.js"
     secrets:
       aws-oidc-role:
         description: IAM role ARN to assume via OIDC
