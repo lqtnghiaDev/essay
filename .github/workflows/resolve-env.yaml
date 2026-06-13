@@ -23,6 +23,9 @@ on:
       sentry-project-frontend:
         description: Sentry project slug for frontend
         value: ${{ jobs.resolve.outputs.sentry-project-frontend }}
+      app-url-dev:
+        description: Base URL of the dev environment (DAST / perf target)
+        value: ${{ jobs.resolve.outputs.app-url-dev }}
 
 permissions:
   contents: read
