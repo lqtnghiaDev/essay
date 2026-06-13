@@ -149,7 +149,7 @@ jobs:
   # ── Deploy to qa (stub: no separate QA account yet) ──────────────────────────
   deploy-qa:
     name: Deploy frontend to qa
-    needs: [resolve, docker]
+    needs: [deploy-dev]
     if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/develop') || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     steps:
@@ -159,7 +159,7 @@ jobs:
   # Real QA deploy — uncomment once a dedicated QA account/vars are available.
   # deploy-qa:
   #   name: Deploy frontend to qa
-  #   needs: [resolve, docker]
+  #   needs: [resolve, docker, deploy-dev]
   #   if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/develop') || github.event_name == 'workflow_dispatch' }}
   #   uses: ./.github/workflows/_deploy_eks.yml
   #   with:

@@ -119,7 +119,7 @@ jobs:
   # ── Deploy to qa (build-once: same image as dev) ──────────────────────────────
   deploy-qa:
     name: Deploy backend to qa
-    needs: [resolve, build-image]
+    needs: [resolve, build-image, deploy-dev]
     if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch' }}
     uses: ./.github/workflows/_deploy_eks.yml
     with:
