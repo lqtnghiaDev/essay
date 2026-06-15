@@ -5,13 +5,6 @@ on:
     branches:
       - main
       - develop
-    # paths:
-    #   - "fe/**"
-    #   - ".github/workflows/ci-next.yaml"
-    #   - ".github/workflows/build.yaml"
-    #   - ".github/workflows/resolve-env.yaml"
-    #   - ".github/actions/build-push-ecr/**"
-    #   - ".github/actions/sca-scan/**"
     tags:
       - "v*.*.*"
   pull_request:
@@ -57,54 +50,54 @@ jobs:
       prefix: fe
 
   # ── Lint + test + Sentry (reusable) ──────────────────────────────────────────
-  # build:
-  #   name: Frontend build
-  #   needs: [resolve]
-  #   uses: ./.github/workflows/build.yaml
-  #   with:
-  #     working-directory: fe
-  #     enable-sentry: true
-  #     sentry-environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
-  #     sentry-org: ${{ needs.resolve.outputs.sentry-org }}
-  #     sentry-project: ${{ needs.resolve.outputs.sentry-project-frontend }}
-  #   secrets:
-  #     SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+  build:
+    name: Frontend build
+    needs: [resolve]
+    uses: ./.github/workflows/build.yaml
+    with:
+      working-directory: fe
+      enable-sentry: true
+      sentry-environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+      sentry-org: ${{ needs.resolve.outputs.sentry-org }}
+      sentry-project: ${{ needs.resolve.outputs.sentry-project-frontend }}
+    secrets:
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
-  # # ── Security scans (parallel) ─────────────────────────────────────────────────
-  # security:
-  #   name: Security scans
-  #   uses: ./.github/workflows/security.yml
-  #   with:
-  #     working-directory: fe
-  #   secrets:
-  #     SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+  # ── Security scans (parallel) ─────────────────────────────────────────────────
+  security:
+    name: Security scans
+    uses: ./.github/workflows/security.yml
+    with:
+      working-directory: fe
+    secrets:
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
-  # # ── Build & push Docker image ─────────────────────────────────────────────────
-  # build-image:
-  #   name: Build & push frontend image
-  #   needs: [resolve, build, security]
-  #   environment: HUB
-  #   runs-on: ubuntu-latest
-  #   outputs:
-  #     image-uri: ${{ steps.docker-build.outputs.image-uri }}
-  #     image-tag: ${{ needs.resolve.outputs.image-tag }}
+  # ── Build & push Docker image ─────────────────────────────────────────────────
+  build-image:
+    name: Build & push frontend image
+    needs: [resolve, build, security]
+    environment: HUB
+    runs-on: ubuntu-latest
+    outputs:
+      image-uri: ${{ steps.docker-build.outputs.image-uri }}
+      image-tag: ${{ needs.resolve.outputs.image-tag }}
 
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v6
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
 
-  #     - name: Build & push frontend image to ECR
-  #       id: docker-build
-  #       uses: ./.github/actions/build-push-ecr
-  #       with:
-  #         aws-region: ${{ needs.resolve.outputs.region }}
-  #         aws-oidc-role: ${{ vars.AWS_OIDC_ROLE }}
-  #         ecr-repository: ${{ needs.resolve.outputs.ecr-repository }}
-  #         image-tag: ${{ needs.resolve.outputs.image-tag }}
-  #         tag-latest: ${{ github.ref_name == 'main' && 'true' || 'false' }}
-  #         context: ${{ env.BUILD_CONTEXT }}
-  #         dockerfile: ${{ env.BUILD_DOCKERFILE }}
-  #         build-args: ${{ env.BUILD_ARGS }}
+      - name: Build & push frontend image to ECR
+        id: docker-build
+        uses: ./.github/actions/build-push-ecr
+        with:
+          aws-region: ${{ needs.resolve.outputs.region }}
+          aws-oidc-role: ${{ vars.AWS_OIDC_ROLE }}
+          ecr-repository: ${{ needs.resolve.outputs.ecr-repository }}
+          image-tag: ${{ needs.resolve.outputs.image-tag }}
+          tag-latest: ${{ github.ref_name == 'main' && 'true' || 'false' }}
+          context: ${{ env.BUILD_CONTEXT }}
+          dockerfile: ${{ env.BUILD_DOCKERFILE }}
+          build-args: ${{ env.BUILD_ARGS }}
 
   # ── Deploy to dev ─────────────────────────────────────────────────────────────
   # deploy-dev:
@@ -126,25 +119,25 @@ jobs:
   #   secrets:
   #     aws-oidc-role: ${{ vars.AWS_OIDC_ROLE_DEV }}
 
-  # deploy-dev:
-  #   name: Deploy frontend to dev
-  #   needs: [resolve, build-image]
-  #   if: >-
-  #     ${{
-  #       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-  #       (github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
-  #       (github.event_name == 'pull_request' && startsWith(github.head_ref, 'feature/')) ||
-  #       github.event_name == 'workflow_dispatch'
-  #     }}
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Placeholder deploy
-  #       run: echo "deploy dev"
+  deploy-dev:
+    name: Deploy frontend to dev
+    needs: [resolve, build-image]
+    if: >-
+      ${{
+        (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+        (github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
+        (github.event_name == 'pull_request' && startsWith(github.head_ref, 'feature/')) ||
+        github.event_name == 'workflow_dispatch'
+      }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Placeholder deploy
+        run: echo "deploy dev"
 
   # ── DAST scan, dev only ──────────────────────────────────────────────────────
   dast:
     name: DAST (dev)
-    needs: [resolve] # deploy-dev
+    needs: [resolve, deploy-dev]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -161,7 +154,7 @@ jobs:
   # ── Performance test, runs in parallel with DAST ──────────────────────────────
   performance:
     name: Performance (dev)
-    needs: [resolve] # deploy-dev
+    needs: [resolve, deploy-dev]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -177,7 +170,7 @@ jobs:
   # ── Deploy to qa (stub: no separate QA account yet) ──────────────────────────
   deploy-qa:
     name: Deploy frontend to qa
-    needs: [resolve, performance, dast] # deploy-dev
+    needs: [resolve, performance, dast, deploy-dev]
     if: >-
       ${{
         (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
