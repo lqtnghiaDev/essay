@@ -32,9 +32,7 @@ import 'dotenv/config';
       url: process.env.DATABASE_URL,
       autoLoadEntities: true,
       synchronize: true,
-      ssl: {
-        rejectUnauthorized: false,
-      },
+      ssl: {},
     }),
     ScheduleModule.forRoot(),
     SkillsModule,
