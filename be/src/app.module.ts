@@ -33,7 +33,7 @@ import 'dotenv/config';
       autoLoadEntities: true,
       synchronize: true,
       ssl: {
-        rejectUnauthorized: false,
+        rejectUnauthorized: true,
       },
     }),
     ScheduleModule.forRoot(),
