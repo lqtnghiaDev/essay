@@ -69,8 +69,7 @@ jobs:
     uses: ./.github/workflows/security.yml
     with:
       working-directory: fe
-    secrets:
-      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+    secrets: inherit
 
   # ── Build & push Docker image ─────────────────────────────────────────────────
   build-image:
@@ -116,8 +115,7 @@ jobs:
   #     namespace: ${{ vars.K8S_NAMESPACE_DEV }}
   #     frontend-image-uri: ${{ needs.build-image.outputs.image-uri }}
   #     frontend-deployment: ${{ vars.K8S_FRONTEND_DEPLOYMENT_DEV }}
-  #   secrets:
-  #     aws-oidc-role: ${{ vars.AWS_OIDC_ROLE_DEV }}
+  #   secrets: inherit
 
   deploy-dev:
     name: Deploy frontend to dev

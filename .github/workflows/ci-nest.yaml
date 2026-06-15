@@ -70,8 +70,7 @@ jobs:
     with:
       working-directory: be
       install-flags: --legacy-peer-deps
-    secrets:
-      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+    secrets: inherit
 
   # ── Build & push Docker image ─────────────────────────────────────────────────
   build-image:
@@ -117,8 +116,7 @@ jobs:
   #     namespace: ${{ vars.K8S_NAMESPACE_DEV }}
   #     backend-image-uri: ${{ needs.build-image.outputs.image-uri }}
   #     backend-deployment: ${{ vars.K8S_BACKEND_DEPLOYMENT_DEV }}
-  #   secrets:
-  #     aws-oidc-role: ${{ vars.AWS_OIDC_ROLE_DEV }}
+  #   secrets: inherit
 
   deploy-dev:
     name: Deploy backend to dev
@@ -151,8 +149,7 @@ jobs:
   #     namespace: ${{ vars.K8S_NAMESPACE_QA }}
   #     backend-image-uri: ${{ needs.build-image.outputs.image-uri }}
   #     backend-deployment: ${{ vars.K8S_BACKEND_DEPLOYMENT_QA }}
-  #   secrets:
-  #     aws-oidc-role: ${{ vars.AWS_OIDC_ROLE_QA }}
+  #   secrets: inherit
 
   # ── DAST scan, dev only (build-once: same artifact reaches every env) ─────────
   dast:
