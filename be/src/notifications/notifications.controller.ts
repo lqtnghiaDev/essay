@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Put, UseGuards } from '@nestjs/common';
+import { Controller, Delete, Get, Param, Put, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { User } from 'src/auth/decorators/user.decorator';
@@ -35,5 +35,11 @@ export class NotificationsController {
   @Put(':id/read')
   async markAsRead(@Param('id') id: string, @User() user: SimpleUserDto) {
     return this.notificationsService.markAsRead(id, user.id);
+  }
+
+  @ApiOperation({ summary: 'Delete a notification' })
+  @Delete(':id')
+  async remove(@Param('id') id: string, @User() user: SimpleUserDto) {
+    return this.notificationsService.remove(id, user.id);
   }
 }

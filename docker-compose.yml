@@ -5,9 +5,13 @@ services:
       context: ./be
       dockerfile: Dockerfile
     restart: unless-stopped
-    # environment:
-    #   # Always overrides .env so the service name resolves inside compose network.
-    #   DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-internship}
+    environment:
+      # Force the in-container port to 3000 so it matches EXPOSE, the healthcheck
+      # and the "3001:3000" mapping. be/.env sets PORT=3001 for local dev (to avoid
+      # clashing with the frontend on 3000); env_file would otherwise leak that here.
+      PORT: 3000
+      # # Always overrides .env so the service name resolves inside compose network.
+      # DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-internship}
     env_file:
       # Provides JWT_SECRET, GEMINI_API_KEY, OPENAI_API_KEY, etc.
       # Copy be/.env.example → be/.env and fill in real values.
@@ -16,8 +20,13 @@ services:
     ports:
       - "3001:3000"
     healthcheck:
-      test: ["CMD", "node", "-e",
-        "require('net').createConnection(3000,'localhost').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('net').createConnection(3000,'localhost').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))",
+        ]
       interval: 30s
       timeout: 5s
       start_period: 20s
@@ -34,7 +43,7 @@ services:
       args:
         # Baked into the JS bundle at build time (NEXT_PUBLIC_* cannot be set at runtime).
         # For production, override with the real backend URL in your CI pipeline.
-        NEXT_PUBLIC_API_BASE_URL: http://localhost:3001
+        NEXT_PUBLIC_API_BASE_URL: http://192.168.1.9:3001
     restart: unless-stopped
     env_file:
       - path: ./fe/.env
@@ -43,7 +52,7 @@ services:
       # Inside Docker network, collector is reachable by service name, not localhost.
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
     ports:
-      - "3000:3000"
+      - "80:3000"
     depends_on:
       backend:
         condition: service_healthy
@@ -117,7 +126,8 @@ services:
     image: cr.fluentbit.io/fluent/fluent-bit:3.1.9
     restart: unless-stopped
     user: root
-    command: ["/fluent-bit/bin/fluent-bit", "-c", "/fluent-bit/etc/fluent-bit.conf"]
+    command:
+      ["/fluent-bit/bin/fluent-bit", "-c", "/fluent-bit/etc/fluent-bit.conf"]
     volumes:
       - ./observability/fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
       - ./observability/fluent-bit/parsers.conf:/fluent-bit/etc/parsers.conf:ro
@@ -129,3 +139,5 @@ services:
 volumes:
   chroma_data:
   elasticsearch_data:
+
+  # netsh interface portproxy add v4tov4 listenaddress=0.0.0.0 listenport=80   connectaddress=172.19.6.248 connectport=80

@@ -8,7 +8,7 @@ inputs:
   K6_SCRIPT:
     description: "Path to k6 test script"
     required: false
-    default: "frontend/k6/load-test.js"
+    default: "k6/load-test.js"
   K6_CLOUD_TOKEN:
     description: "Grafana Cloud k6 token for result upload (optional)"
     required: false
@@ -30,6 +30,12 @@ runs:
       env:
         K6_CLOUD_TOKEN: ${{ inputs.K6_CLOUD_TOKEN }}
       run: |
+        # Slug from the script filename (e.g. k6/stress-test.js -> stress-test)
+        # so parallel matrix legs upload distinctly named artifacts — v4+
+        # artifact names are immutable and a duplicate name would error.
+        slug="$(basename "${{ inputs.K6_SCRIPT }}" .js)"
+        echo "slug=${slug}" >> "$GITHUB_OUTPUT"
+
         K6_CMD="k6 run"
         if [ -n "$K6_CLOUD_TOKEN" ]; then
           K6_CMD="k6 cloud run"
@@ -37,18 +43,18 @@ runs:
 
         $K6_CMD \
           --env TARGET_URL=${{ inputs.TARGET_URL }} \
-          --out json=k6-results.json \
           ${{ inputs.K6_SCRIPT }} | tee k6-output.txt
 
     - name: Upload k6 results
       if: always()
       uses: actions/upload-artifact@v7
       with:
-        name: k6-results-${{ github.sha }}
+        name: k6-results-${{ steps.k6.outputs.slug }}-${{ github.sha }}
         path: |
-          k6-results.json
-          k6-summary.json
+          k6-*report.html
+          k6-*summary.csv
         retention-days: 7
+        if-no-files-found: ignore
 
     - name: Performance test summary
       if: always()
@@ -58,13 +64,14 @@ runs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "- **Target:** ${{ inputs.TARGET_URL }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Script:** ${{ inputs.K6_SCRIPT }}" >> $GITHUB_STEP_SUMMARY
-        if [ -f k6-summary.json ]; then
-          P95=$(node -e "const d=require('./k6-summary.json'); console.log(Math.round(d.metrics.http_req_duration.values['p(95)']))")
-          REQS=$(node -e "const d=require('./k6-summary.json'); console.log(d.metrics.http_reqs.values.count)")
-          FAIL=$(node -e "const d=require('./k6-summary.json'); console.log((d.metrics.http_req_failed.values.rate*100).toFixed(2))")
-          echo "- **p95 latency:** ${P95}ms" >> $GITHUB_STEP_SUMMARY
-          echo "- **Total requests:** ${REQS}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Error rate:** ${FAIL}%" >> $GITHUB_STEP_SUMMARY
+        CSV=$(ls k6-*summary.csv 2>/dev/null | head -n1)
+        if [ -n "$CSV" ]; then
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          tail -n +2 "$CSV" | while IFS=, read -r metric value; do
+            echo "| ${metric} | ${value} |" >> $GITHUB_STEP_SUMMARY
+          done
         fi
         if [ -n "${{ inputs.K6_CLOUD_TOKEN }}" ]; then
           echo "- **Results:** uploaded to Grafana Cloud k6" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,120 @@
+name: Deploy to EKS (reusable)
+
+# Reusable workflow — deploys the backend and/or frontend to an EKS cluster via
+# `kubectl set image`. Each app is deployed only when its image URI AND
+# deployment name are provided, so a single-component pipeline can call this with
+# just that component's inputs. Post-deploy checks (DAST + performance) are run
+# separately by the caller (dev only), not here.
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: Target environment (dev | qa | staging | production)
+        required: true
+        type: string
+      aws-region:
+        description: AWS region
+        required: true
+        type: string
+      eks-cluster:
+        description: EKS cluster name
+        required: true
+        type: string
+      namespace:
+        description: Kubernetes namespace (defaults to "default")
+        required: false
+        type: string
+        default: ""
+      backend-image-uri:
+        description: Full ECR URI for the backend image (skip backend deploy if empty)
+        required: false
+        type: string
+        default: ""
+      backend-deployment:
+        description: Kubernetes deployment name for the backend (skip backend deploy if empty)
+        required: false
+        type: string
+        default: ""
+      backend-container-name:
+        description: Container name inside the backend deployment
+        required: false
+        type: string
+        default: backend
+      frontend-image-uri:
+        description: Full ECR URI for the frontend image (skip frontend deploy if empty)
+        required: false
+        type: string
+        default: ""
+      frontend-deployment:
+        description: Kubernetes deployment name for the frontend (skip frontend deploy if empty)
+        required: false
+        type: string
+        default: ""
+      frontend-container-name:
+        description: Container name inside the frontend deployment
+        required: false
+        type: string
+        default: frontend
+      rollout-timeout:
+        description: Timeout passed to `kubectl rollout status`
+        required: false
+        type: string
+        default: 300s
+    secrets:
+      aws-oidc-role:
+        description: IAM role ARN to assume via OIDC
+        required: true
+
+jobs:
+  deploy:
+    name: Deploy to ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
+
+    env:
+      NAMESPACE: ${{ inputs.namespace }}
+      ROLLOUT_TIMEOUT: ${{ inputs.rollout-timeout }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.aws-oidc-role }}
+          aws-region: ${{ inputs.aws-region }}
+
+      # - name: Update kubeconfig for EKS
+      #   env:
+      #     EKS_CLUSTER: ${{ inputs.eks-cluster }}
+      #     AWS_REGION: ${{ inputs.aws-region }}
+      #   run: |
+      #     aws eks update-kubeconfig --name "$EKS_CLUSTER" --region "$AWS_REGION"
+
+      # ── Backend ────────────────────────────────────────────────────────────────
+      # - name: Deploy backend to EKS
+      #   if: ${{ inputs.backend-image-uri != '' && inputs.backend-deployment != '' }}
+      #   env:
+      #     DEPLOYMENT: ${{ inputs.backend-deployment }}
+      #     CONTAINER: ${{ inputs.backend-container-name }}
+      #     IMAGE: ${{ inputs.backend-image-uri }}
+      #   run: |
+      #     NS="${NAMESPACE:-default}"
+      #     kubectl set image "deployment/$DEPLOYMENT" "$CONTAINER=$IMAGE" -n "$NS"
+      #     kubectl rollout status "deployment/$DEPLOYMENT" -n "$NS" --timeout="$ROLLOUT_TIMEOUT"
+
+      # ── Frontend ───────────────────────────────────────────────────────────────
+      # - name: Deploy frontend to EKS
+      #   if: ${{ inputs.frontend-image-uri != '' && inputs.frontend-deployment != '' }}
+      #   env:
+      #     DEPLOYMENT: ${{ inputs.frontend-deployment }}
+      #     CONTAINER: ${{ inputs.frontend-container-name }}
+      #     IMAGE: ${{ inputs.frontend-image-uri }}
+      #   run: |
+      #     NS="${NAMESPACE:-default}"
+      #     kubectl set image "deployment/$DEPLOYMENT" "$CONTAINER=$IMAGE" -n "$NS"
+      #     kubectl rollout status "deployment/$DEPLOYMENT" -n "$NS" --timeout="$ROLLOUT_TIMEOUT"

@@ -9,51 +9,45 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
+import { getRepositoryToken } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
-import { InternsInformationService } from 'src/interns-information/interns-information.service';
-
-const mockAdminUser = { id: 'admin-1', role: 'admin' };
-const mockMentorUser = { id: 'mentor-1', role: 'mentor' };
-
-const makeUser = (overrides: Partial<User> = {}): User =>
-  ({
-    id: 'user-1',
-    username: 'testuser',
-    email: 'test@example.com',
-    fullName: 'Test User',
-    passwordHash: 'hash',
-    role: 'intern',
-    isDeleted: false,
-    internInformation: null,
-    ...overrides,
-  }) as User;
-
-const mockRepository = {
-  findOne: jest.fn(),
-  find: jest.fn(),
-  update: jest.fn(),
-  save: jest.fn(),
-  create: jest.fn(),
-  createQueryBuilder: jest.fn(),
-};
-
-const mockDataSource = {
-  transaction: jest.fn(),
-  getRepository: jest.fn(),
-};
-
-const mockInternsInfoService = {};
+import { InternsInformationService } from '../interns-information/interns-information.service';
+import { DataSource } from 'typeorm';
 
 describe('UsersService', () => {
   let service: UsersService;
+
+  const mockUserRepository = {
+    find: jest.fn(),
+    findOne: jest.fn(),
+    save: jest.fn(),
+  };
+
+  const mockInternsInformationService = {
+    findOne: jest.fn(),
+  };
+
+  const mockDataSource = {
+    createQueryRunner: jest.fn(),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UsersService,
-        { provide: getRepositoryToken(User), useValue: mockRepository },
-        { provide: InternsInformationService, useValue: mockInternsInfoService },
-        { provide: DataSource, useValue: mockDataSource },
+
+        {
+          provide: getRepositoryToken(User),
+          useValue: mockUserRepository,
+        },
+        {
+          provide: InternsInformationService,
+          useValue: mockInternsInformationService,
+        },
+        {
+          provide: DataSource,
+          useValue: mockDataSource,
+        },
       ],
     }).compile();
 

@@ -7,41 +7,38 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { TasksService } from './tasks.service';
+import { getRepositoryToken } from '@nestjs/typeorm';
 import { Task } from './entities/task.entity';
-
-const mockUser = { id: 'user-1', role: 'mentor' };
-
-const makeTask = (overrides: Partial<Task> = {}): Task =>
-  ({
-    id: 'task-1',
-    name: 'Test Task',
-    description: 'desc',
-    createdBy: 'user-1',
-    isDeleted: false,
-    ...overrides,
-  }) as Task;
-
-const mockRepository = {
-  findOne: jest.fn(),
-  save: jest.fn(),
-  create: jest.fn(),
-  update: jest.fn(),
-  createQueryBuilder: jest.fn(),
-};
-
-const mockDataSource = {
-  getRepository: jest.fn(),
-};
+import { DataSource } from 'typeorm';
 
 describe('TasksService', () => {
   let service: TasksService;
+
+  const mockTaskRepository = {
+    find: jest.fn(),
+    findOne: jest.fn(),
+    save: jest.fn(),
+    delete: jest.fn(),
+  };
+
+  const mockDataSource = {
+    createQueryRunner: jest.fn(),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TasksService,
-        { provide: getRepositoryToken(Task), useValue: mockRepository },
-        { provide: DataSource, useValue: mockDataSource },
+
+        {
+          provide: getRepositoryToken(Task),
+          useValue: mockTaskRepository,
+        },
+
+        {
+          provide: DataSource,
+          useValue: mockDataSource,
+        },
       ],
     }).compile();
 

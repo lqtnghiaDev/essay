@@ -119,8 +119,8 @@ export class AttendanceService {
             recipientId: internInfo.mentorId,
             senderId: userId,
             type: NotificationType.ATTENDANCE_REGISTERED,
-            title: 'Chấm công mới',
-            message: `${senderName} đã chấm công ngày ${dto.date}`,
+            title: 'New attendance record',
+            message: `${senderName} checked in for ${dto.date}`,
             data: {
               attendanceId: savedAttendance.id,
               date: dto.date,

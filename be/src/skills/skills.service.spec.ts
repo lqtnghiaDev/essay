@@ -7,41 +7,36 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { SkillsService } from './skills.service';
+import { getRepositoryToken } from '@nestjs/typeorm';
 import { Skill } from './entities/skill.entity';
-
-const mockAdmin = { id: 'admin-1', role: 'admin' };
-const mockMentor = { id: 'mentor-1', role: 'mentor' };
-
-const makeSkill = (overrides: Partial<Skill> = {}): Skill =>
-  ({
-    id: 'skill-1',
-    name: 'TypeScript',
-    description: 'TS language',
-    createdBy: 'mentor-1',
-    isDeleted: false,
-    ...overrides,
-  }) as Skill;
-
-const mockRepository = {
-  findOne: jest.fn(),
-  save: jest.fn(),
-  update: jest.fn(),
-  createQueryBuilder: jest.fn(),
-};
-
-const mockDataSource = {
-  getRepository: jest.fn(),
-};
+import { DataSource } from 'typeorm';
 
 describe('SkillsService', () => {
   let service: SkillsService;
+
+  const mockSkillRepository = {
+    find: jest.fn(),
+    findOne: jest.fn(),
+    save: jest.fn(),
+    delete: jest.fn(),
+  };
+
+  const mockDataSource = {
+    createQueryRunner: jest.fn(),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SkillsService,
-        { provide: getRepositoryToken(Skill), useValue: mockRepository },
-        { provide: DataSource, useValue: mockDataSource },
+        {
+          provide: getRepositoryToken(Skill),
+          useValue: mockSkillRepository,
+        },
+        {
+          provide: DataSource,
+          useValue: mockDataSource,
+        },
       ],
     }).compile();
 

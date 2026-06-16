@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
+import { useDebounce } from "@/hooks/useDebounce";
 import { Assignment, AssignmentStatus } from "@/types/trainingPlan.type";
 import {
   DndContext,
@@ -43,6 +44,29 @@ const STATUSES: AssignmentStatus[] = [
 
 type AssignmentsByStatus = Record<AssignmentStatus, Assignment[]>;
 
+function matchesAssignmentSearch(
+  assignment: Assignment,
+  query: string
+): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+
+  const parts = [
+    assignment.task?.name,
+    assignment.task?.description,
+    assignment.assignee?.fullName,
+    assignment.assignee?.username,
+    assignment.creator?.fullName,
+    assignment.creator?.username,
+    assignment.status,
+    assignment.feedback,
+    assignment.submittedLink,
+    ...(assignment.skills?.map((s) => s.skill?.name) ?? [])
+  ];
+
+  return parts.some((part) => part?.toLowerCase().includes(q));
+}
+
 export default function AssignmentBoard() {
   const { showToastSuccess, showToastError } = useToastMessage();
   const [isOpenExport, setIsOpenExport] = useState(false);
@@ -56,6 +80,8 @@ export default function AssignmentBoard() {
   const { userDetails } = useAuthStore();
   const userRole: string = userDetails?.role ?? "";
   const [filterIntern, setFilterIntern] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearch = useDebounce(searchQuery, 300);
 
   const { data: mentorData } = useGetInfoMentorDashboard(
     userDetails?.role === "mentor"
@@ -117,23 +143,29 @@ export default function AssignmentBoard() {
     }
   );
 
+  const groupAssignments = useCallback(
+    (list: Assignment[]) => {
+      return STATUSES.reduce((acc, status) => {
+        acc[status] = list.filter(
+          (a) =>
+            a.status === status &&
+            a.assignedTo != null &&
+            (filterIntern === "all" || a.assignedTo === filterIntern) &&
+            matchesAssignmentSearch(a, debouncedSearch)
+        );
+        return acc;
+      }, {} as AssignmentsByStatus);
+    },
+    [filterIntern, debouncedSearch]
+  );
+
   useEffect(() => {
     if (!assignments || !Array.isArray(assignments)) {
       return;
     }
 
-    const grouped = STATUSES.reduce((acc, status) => {
-      acc[status] = assignments.filter(
-        (a: Assignment) =>
-          a.status === status &&
-          a.assignedTo != null &&
-          (filterIntern === "all" || a.assignedTo === filterIntern)
-      );
-      return acc;
-    }, {} as AssignmentsByStatus);
-
-    setItemsByStatus(grouped);
-  }, [assignments, filterIntern]);
+    setItemsByStatus(groupAssignments(assignments));
+  }, [assignments, groupAssignments]);
   const [activeAssignment, setActiveAssignment] = useState<Assignment | null>(
     null
   );
@@ -277,12 +309,16 @@ export default function AssignmentBoard() {
           icon={<ClipboardList className="w-5 h-5 " />}
         />
         <div className="py-4 px-4 sm:px-24">
-          <Card className="p-4 rounded-md w-full flex gap-2">
-            <Search className="absolute left-3 top-2.5 transform -translate-y-01/2 w-4 h-4 text-gray-400" />
-            <Input
-              placeholder="Search interns, mentors, or plans..."
-              className="pl-10 bg-gray-50 border-gray-200 focus:bg-white"
-            />
+          <Card className="p-4 rounded-md w-full flex flex-wrap gap-2 items-center">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search tasks, interns, skills..."
+                className="pl-10 bg-gray-50 border-gray-200 focus:bg-white"
+              />
+            </div>
             <Select
               value={filterIntern ?? undefined}
               onValueChange={setFilterIntern}

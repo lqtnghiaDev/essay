@@ -14,6 +14,7 @@ type NotificationActions = {
   setUnreadCount: (count: number) => void;
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
+  removeNotification: (id: string) => void;
 };
 
 export const useNotificationStore = create<
@@ -66,5 +67,17 @@ export const useNotificationStore = create<
     set((state) => ({
       notifications: state.notifications.map((n) => ({ ...n, isRead: true })),
       unreadCount: 0
-    }))
+    })),
+
+  removeNotification: (id) =>
+    set((state) => {
+      const notification = state.notifications.find((n) => n.id === id);
+      return {
+        notifications: state.notifications.filter((n) => n.id !== id),
+        unreadCount:
+          notification && !notification.isRead
+            ? Math.max(0, state.unreadCount - 1)
+            : state.unreadCount
+      };
+    })
 }));

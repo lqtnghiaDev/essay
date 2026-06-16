@@ -5,17 +5,20 @@ on:
     branches:
       - main
       - develop
-    paths:
-      - "be/**"
-      - ".github/workflows/ci-nest.yaml"
-      - ".github/workflows/build.yaml"
-      - ".github/workflows/resolve-env.yaml"
-      - ".github/actions/build-push-ecr/**"
-      - ".github/actions/sca-scan/**"
+    # paths:
+    #   - "be/**"
+    #   - ".github/workflows/ci-nest.yaml"
+    #   - ".github/workflows/build.yaml"
+    #   - ".github/workflows/resolve-env.yaml"
+    #   - ".github/actions/build-push-ecr/**"
+    #   - ".github/actions/sca-scan/**"
   pull_request:
     branches:
       - main
       - develop
+      - feature/**
+      - hotfix/**
+      - release/**
     paths:
       - "be/**"
       - ".github/workflows/ci-nest.yaml"
@@ -67,11 +70,10 @@ jobs:
     with:
       working-directory: be
       install-flags: --legacy-peer-deps
-    secrets:
-      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+    secrets: inherit
 
   # ── Build & push Docker image ─────────────────────────────────────────────────
-  docker:
+  build-image:
     name: Build & push backend image
     needs: [resolve, build, security]
     environment: HUB
@@ -96,3 +98,88 @@ jobs:
           tag-latest: ${{ github.ref_name == 'main' && 'true' || 'false' }}
           context: ${{ env.BUILD_CONTEXT }}
           dockerfile: ${{ env.BUILD_DOCKERFILE }}
+
+  # ── Deploy to dev (build-once: reuse the image just pushed) ───────────────────
+  # deploy-dev:
+  #   name: Deploy backend to dev
+  #   needs: [resolve, build-image]
+  #   if: >-
+  #     ${{
+  #       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+  #       github.event_name == 'workflow_dispatch'
+  #     }}
+  #   uses: ./.github/workflows/_deploy_eks.yml
+  #   with:
+  #     environment: dev
+  #     aws-region: ${{ needs.resolve.outputs.region }}
+  #     eks-cluster: ${{ vars.EKS_CLUSTER_DEV }}
+  #     namespace: ${{ vars.K8S_NAMESPACE_DEV }}
+  #     backend-image-uri: ${{ needs.build-image.outputs.image-uri }}
+  #     backend-deployment: ${{ vars.K8S_BACKEND_DEPLOYMENT_DEV }}
+  #   secrets: inherit
+
+  deploy-dev:
+    name: Deploy backend to dev
+    needs: [resolve, build-image]
+    if: >-
+      ${{
+        (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+        (github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
+        (github.event_name == 'pull_request' && startsWith(github.head_ref, 'feature/')) ||        github.event_name == 'workflow_dispatch'
+      }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Placeholder deploy
+        run: echo "deploy dev"
+
+  # ── Deploy to qa (build-once: same image as dev) ──────────────────────────────
+  # deploy-qa:
+  #   name: Deploy backend to qa
+  #   needs: [resolve, build-image, deploy-dev]
+  #   if: >-
+  #     ${{
+  #       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+  #       github.event_name == 'workflow_dispatch'
+  #     }}
+  #   uses: ./.github/workflows/_deploy_eks.yml
+  #   with:
+  #     environment: qa
+  #     aws-region: ${{ needs.resolve.outputs.region }}
+  #     eks-cluster: ${{ vars.EKS_CLUSTER_QA }}
+  #     namespace: ${{ vars.K8S_NAMESPACE_QA }}
+  #     backend-image-uri: ${{ needs.build-image.outputs.image-uri }}
+  #     backend-deployment: ${{ vars.K8S_BACKEND_DEPLOYMENT_QA }}
+  #   secrets: inherit
+
+  # ── DAST scan, dev only (build-once: same artifact reaches every env) ─────────
+  dast:
+    name: DAST (dev)
+    needs: [resolve, deploy-dev]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: DAST scan
+        uses: ./.github/actions/dast-scan
+        with:
+          TARGET_URL: ${{ needs.resolve.outputs.app-url-dev }}
+
+  # ── Performance test, runs after DAST passes ──────────────────────────────────
+  performance:
+    name: Performance (dev)
+    needs: [resolve, dast]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Performance test
+        uses: ./.github/actions/perf-test
+        with:
+          TARGET_URL: ${{ needs.resolve.outputs.app-url-dev }}
+          K6_SCRIPT: k6/load-test.js
+          K6_CLOUD_TOKEN: ${{ secrets.K6_CLOUD_TOKEN }}

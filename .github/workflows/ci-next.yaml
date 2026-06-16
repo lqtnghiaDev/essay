@@ -5,13 +5,8 @@ on:
     branches:
       - main
       - develop
-    paths:
-      - "fe/**"
-      - ".github/workflows/ci-next.yaml"
-      - ".github/workflows/build.yaml"
-      - ".github/workflows/resolve-env.yaml"
-      - ".github/actions/build-push-ecr/**"
-      - ".github/actions/sca-scan/**"
+    tags:
+      - "v*.*.*"
   pull_request:
     branches:
       - main
@@ -74,11 +69,10 @@ jobs:
     uses: ./.github/workflows/security.yml
     with:
       working-directory: fe
-    secrets:
-      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+    secrets: inherit
 
   # ── Build & push Docker image ─────────────────────────────────────────────────
-  docker:
+  build-image:
     name: Build & push frontend image
     needs: [resolve, build, security]
     environment: HUB
@@ -103,3 +97,105 @@ jobs:
           context: ${{ env.BUILD_CONTEXT }}
           dockerfile: ${{ env.BUILD_DOCKERFILE }}
           build-args: ${{ env.BUILD_ARGS }}
+
+  # ── Deploy to dev ─────────────────────────────────────────────────────────────
+  # deploy-dev:
+  #   name: Deploy frontend to dev
+  #   needs: [resolve, build-image]
+  #   if: >-
+  #     ${{
+  #       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+  #       github.event_name == 'workflow_dispatch'
+  #     }}
+  #   uses: ./.github/workflows/_deploy_eks.yml
+  #   with:
+  #     environment: dev
+  #     aws-region: ${{ needs.resolve.outputs.region }}
+  #     eks-cluster: ${{ vars.EKS_CLUSTER_DEV }}
+  #     namespace: ${{ vars.K8S_NAMESPACE_DEV }}
+  #     frontend-image-uri: ${{ needs.build-image.outputs.image-uri }}
+  #     frontend-deployment: ${{ vars.K8S_FRONTEND_DEPLOYMENT_DEV }}
+  #   secrets: inherit
+
+  deploy-dev:
+    name: Deploy frontend to dev
+    needs: [resolve, build-image]
+    if: >-
+      ${{
+        (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+        (github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
+        (github.event_name == 'pull_request' && startsWith(github.head_ref, 'feature/')) ||
+        github.event_name == 'workflow_dispatch'
+      }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Placeholder deploy
+        run: echo "deploy dev"
+
+  # ── DAST scan, dev only ──────────────────────────────────────────────────────
+  dast:
+    name: DAST (dev)
+    needs: [resolve, deploy-dev]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: DAST scan
+        uses: ./.github/actions/dast-scan
+        with:
+          TARGET_URL: ${{ needs.resolve.outputs.app-url-dev }}
+
+  # ── Performance test, runs in parallel with DAST ──────────────────────────────
+  performance:
+    name: Performance (dev)
+    needs: [resolve, deploy-dev]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Performance test
+        uses: ./.github/actions/perf-test
+        with:
+          TARGET_URL: ${{ needs.resolve.outputs.app-url-dev }}
+          K6_SCRIPT: k6/load-test.js
+          K6_CLOUD_TOKEN: ${{ secrets.K6_CLOUD_TOKEN }}
+
+  # ── Deploy to qa (stub: no separate QA account yet) ──────────────────────────
+  deploy-qa:
+    name: Deploy frontend to qa
+    needs: [resolve, performance, dast, deploy-dev]
+    if: >-
+      ${{
+        (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+        (github.event_name == 'push' && github.ref == 'refs/heads/feature/*') ||
+        github.event_name == 'workflow_dispatch'
+      }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Placeholder deploy
+        run: echo "deploy qa"
+
+  # Real QA deploy — uncomment once a dedicated QA account/vars are available.
+  # deploy-qa:
+  #   name: Deploy frontend to qa
+  #   needs: [resolve, build-image, deploy-dev]
+  #   if: >-
+  #     ${{
+  #       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+  #       github.event_name == 'workflow_dispatch'
+  #     }}
+  #   uses: ./.github/workflows/_deploy_eks.yml
+  #   with:
+  #     environment: qa
+  #     aws-region: ${{ needs.resolve.outputs.region }}
+  #     eks-cluster: ${{ vars.EKS_CLUSTER_QA }}
+  #     namespace: ${{ vars.K8S_NAMESPACE_QA }}
+  #     frontend-image-uri: ${{ needs.build-image.outputs.image-uri }}
+  #     frontend-deployment: ${{ vars.K8S_FRONTEND_DEPLOYMENT_QA }}
+  #   secrets:
+  #     aws-oidc-role: ${{ vars.AWS_OIDC_ROLE_QA }}

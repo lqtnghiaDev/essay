@@ -86,15 +86,45 @@ export const formatMonth = (
   return months[date.getMonth()];
 };
 
-export const convertTimeToLocal = (timeString: string): string => {
-  const localDate = new Date(timeString);
+const CHAT_TIMEZONE = "Asia/Ho_Chi_Minh";
 
-  const localTime = localDate.toLocaleTimeString("en-GB", {
+/** Parse API timestamps as UTC instants (Nest/Postgres typically store UTC). */
+export const parseApiDateTime = (value: string | Date): Date => {
+  if (value instanceof Date) return value;
+  let s = String(value).trim();
+  if (!s) return new Date(NaN);
+
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(s)) {
+    s = s.replace(" ", "T");
+  }
+
+  const hasTimezone = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(s);
+  if (!hasTimezone && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(s)) {
+    s = `${s}Z`;
+  }
+
+  return new Date(s);
+};
+
+export const getUserInitial = (name?: string | null): string => {
+  if (!name?.trim()) return "?";
+  return name.trim().charAt(0);
+};
+
+export const formatChatMessageTime = (value: string | Date): string => {
+  const date = parseApiDateTime(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  return new Intl.DateTimeFormat("vi-VN", {
+    timeZone: CHAT_TIMEZONE,
     hour: "2-digit",
     minute: "2-digit",
     hour12: false
-  });
-  return localTime;
+  }).format(date);
+};
+
+export const convertTimeToLocal = (timeString: string): string => {
+  return formatChatMessageTime(timeString);
 };
 
 export const formatDateForInput = (

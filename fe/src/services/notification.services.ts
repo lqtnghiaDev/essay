@@ -1,4 +1,4 @@
-import { get, put } from "./api.services";
+import { del, get, put } from "./api.services";
 import { Notification } from "@/types/notification.type";
 
 export const notificationServices = {
@@ -8,5 +8,7 @@ export const notificationServices = {
 
   markAsRead: (id: string) => put(`/notifications/${id}/read`),
 
-  markAllAsRead: () => put("/notifications/read-all")
+  markAllAsRead: () => put("/notifications/read-all"),
+
+  deleteNotification: (id: string) => del(`/notifications/${id}`)
 };

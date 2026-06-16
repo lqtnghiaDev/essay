@@ -1,0 +1,134 @@
+name: Release Frontend — Promote & Deploy Production
+
+# Triggered on version tags (e.g. v1.2.3).
+# Build-once / deploy-many: the image built by ci-next on the main push is
+# retagged (no rebuild) and promoted staging -> production. The frontend image
+# bakes a single fixed API base URL, so the same artifact is environment-agnostic.
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  # ── Resolve promotion tags (reuse the image ci-next built on main) ───────────
+  prepare:
+    name: Resolve promotion tags
+    runs-on: ubuntu-latest
+    outputs:
+      ecr-repository: ${{ steps.tags.outputs.ecr-repository }}
+      source-tag: ${{ steps.tags.outputs.source-tag }}
+      target-tag: ${{ steps.tags.outputs.target-tag }}
+    steps:
+      - name: Compute source/target tags
+        id: tags
+        env:
+          SHA: ${{ github.sha }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          SHORT_SHA="${SHA::7}"
+          echo "ecr-repository=ecr-global-api" >> "$GITHUB_OUTPUT"
+          # Image ci-next built on the main push for this commit
+          echo "source-tag=fe-main-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "target-tag=fe-${VERSION}" >> "$GITHUB_OUTPUT"
+
+  # ── Retag frontend image for release (no rebuild) ────────────────────────────
+  retag-frontend:
+    name: Retag frontend image
+    needs: [prepare]
+    uses: ./.github/workflows/_tag-image.yml
+    with:
+      aws-region: us-east-1
+      ecr-repository: ${{ needs.prepare.outputs.ecr-repository }}
+      source-tag: ${{ needs.prepare.outputs.source-tag }}
+      target-tag: ${{ needs.prepare.outputs.target-tag }}
+    secrets:
+      aws-oidc-role: ${{ vars.AWS_OIDC_ROLE }}
+
+  # ── Build frontend sourcemaps for Sentry (symbols only, not the deployed image) ─
+  build-sourcemaps:
+    name: Build frontend sourcemaps
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: fe/package-lock.json
+
+      - name: Install dependencies
+        working-directory: fe
+        run: npm ci
+
+      - name: Build with sourcemaps
+        working-directory: fe
+        env:
+          NEXT_PUBLIC_API_BASE_URL: ${{ vars.NEXT_PUBLIC_API_BASE_URL_PRODUCTION }}
+          NEXT_PUBLIC_SENTRY_RELEASE: ${{ github.ref_name }}
+        run: npm run build
+
+      - name: Upload sourcemaps artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: fe-sourcemaps-${{ github.ref_name }}
+          path: fe/.next/static/
+          retention-days: 1
+
+  # ── Deploy frontend to staging ───────────────────────────────────────────────
+  deploy-staging-frontend:
+    name: Deploy frontend to staging
+    needs:
+      - retag-frontend
+    uses: ./.github/workflows/_deploy_eks.yml
+    with:
+      environment: staging
+      aws-region: ap-southeast-1
+      eks-cluster: ${{ vars.EKS_CLUSTER_STAGING }}
+      namespace: ${{ vars.K8S_NAMESPACE_STAGING }}
+      frontend-image-uri: ${{ needs.retag-frontend.outputs.image-uri }}
+      frontend-deployment: ${{ vars.K8S_FRONTEND_DEPLOYMENT_STAGING }}
+    secrets:
+      aws-oidc-role: ${{ vars.AWS_OIDC_ROLE_STAGING }}
+
+  # ── Deploy frontend to production (requires approval gate on the environment) ─────
+  deploy-production-frontend:
+    name: Deploy frontend to production
+    needs:
+      - retag-frontend
+      - deploy-staging-frontend
+    uses: ./.github/workflows/_deploy_eks.yml
+    with:
+      environment: production
+      aws-region: ap-southeast-1
+      eks-cluster: ${{ vars.EKS_CLUSTER_PRODUCTION }}
+      namespace: ${{ vars.K8S_NAMESPACE_PRODUCTION }}
+      frontend-image-uri: ${{ needs.retag-frontend.outputs.image-uri }}
+      frontend-deployment: ${{ vars.K8S_FRONTEND_DEPLOYMENT_PRODUCTION }}
+    secrets:
+      aws-oidc-role: ${{ vars.AWS_OIDC_ROLE_PRODUCTION }}
+
+  # ── Sentry release + sourcemap upload ───────────────────────────────────────
+  sentry-release:
+    name: Sentry release
+    runs-on: ubuntu-latest
+    needs:
+      - deploy-production-frontend
+      - build-sourcemaps
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Create Sentry release
+        uses: ./.github/actions/sentry-release
+        with:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+          ARTIFACT_NAME: fe-sourcemaps-${{ github.ref_name }}
+          VERSION: ${{ github.ref_name }}
+          ENVIRONMENT: production

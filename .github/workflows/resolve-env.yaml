@@ -23,6 +23,9 @@ on:
       sentry-project-frontend:
         description: Sentry project slug for frontend
         value: ${{ jobs.resolve.outputs.sentry-project-frontend }}
+      app-url-dev:
+        description: Base URL of the dev environment (DAST / perf target)
+        value: ${{ jobs.resolve.outputs.app-url-dev }}
 
 permissions:
   contents: read
@@ -37,15 +40,14 @@ jobs:
       image-tag: ${{ steps.env.outputs.image-tag }}
       sentry-org: ${{ steps.env.outputs.sentry-org }}
       sentry-project-frontend: ${{ steps.env.outputs.sentry-project-frontend }}
+      app-url-dev: ${{ steps.env.outputs.app-url-dev }}
     steps:
       - name: Resolve variables and image tag
         id: env
         env:
           PREFIX: ${{ inputs.prefix }}
           SHA: ${{ github.sha }}
-          EVENT_NAME: ${{ github.event_name }}
-          PR_NUMBER: ${{ github.event.number }}
-          BRANCH: ${{ github.ref_name }}
+          REF_NAME: ${{ github.ref_name }}
           SENTRY_ORG_VAR: ${{ vars.SENTRY_ORG }}
           SENTRY_PROJECT_FE: ${{ vars.SENTRY_PROJECT_FRONTEND }}
         run: |
@@ -54,10 +56,7 @@ jobs:
           echo "sentry-org=${SENTRY_ORG_VAR}" >> "$GITHUB_OUTPUT"
           echo "sentry-project-frontend=${SENTRY_PROJECT_FE}" >> "$GITHUB_OUTPUT"
           SHORT_SHA="${SHA::7}"
-          if [ "${EVENT_NAME}" = "pull_request" ]; then
-            TAG="${PREFIX}-pr-${PR_NUMBER}-${SHORT_SHA}"
-          else
-            SAFE_BRANCH="$(echo "${BRANCH}" | sed 's/[^a-zA-Z0-9._-]/-/g')"
-            TAG="${PREFIX}-${SAFE_BRANCH}-${SHORT_SHA}"
-          fi
+          SAFE_REF="$(echo "${REF_NAME}" | sed 's/[^a-zA-Z0-9._-]/-/g')"
+          TAG="${PREFIX}-${SAFE_REF}-${SHORT_SHA}"
           echo "image-tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "app-url-dev=https://cqrttts1-80.asse.devtunnels.ms" >> "$GITHUB_OUTPUT"

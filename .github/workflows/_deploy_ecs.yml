@@ -1,8 +1,11 @@
-name: Deploy (reusable)
+name: Deploy ECS (reusable)
 
 # Reusable workflow — called by environment-specific workflows.
 # Pulls the already-built ECR images, deploys them to ECS, then optionally
 # runs DAST and performance checks against the live URL.
+#
+# Each app is deployed only when its image URI AND task definition are provided,
+# so a backend-only pipeline can call this with just the backend inputs.
 on:
   workflow_call:
     inputs:
@@ -15,33 +18,39 @@ on:
         required: true
         type: string
       backend-image-uri:
-        description: Full ECR URI for the backend image
-        required: true
+        description: Full ECR URI for the backend image (skip backend deploy if empty)
+        required: false
         type: string
+        default: ""
       frontend-image-uri:
-        description: Full ECR URI for the frontend image
-        required: true
+        description: Full ECR URI for the frontend image (skip frontend deploy if empty)
+        required: false
         type: string
+        default: ""
       ecs-cluster:
         description: ECS cluster name
         required: true
         type: string
       backend-service:
-        description: ECS service name for the backend
-        required: true
+        description: ECS service name for the backend (skip backend deploy if empty)
+        required: false
         type: string
+        default: ""
       frontend-service:
-        description: ECS service name for the frontend
-        required: true
+        description: ECS service name for the frontend (skip frontend deploy if empty)
+        required: false
         type: string
+        default: ""
       backend-task-definition:
-        description: ECS task definition family name for the backend
-        required: true
+        description: ECS task definition family name for the backend (skip backend deploy if empty)
+        required: false
         type: string
+        default: ""
       frontend-task-definition:
-        description: ECS task definition family name for the frontend
-        required: true
+        description: ECS task definition family name for the frontend (skip frontend deploy if empty)
+        required: false
         type: string
+        default: ""
       backend-container-name:
         description: Container name inside the backend task definition
         required: false
@@ -66,7 +75,7 @@ on:
         description: Path to k6 test script
         required: false
         type: string
-        default: "fe/k6/load-test.js"
+        default: "k6/load-test.js"
     secrets:
       aws-oidc-role:
         description: IAM role ARN to assume via OIDC
@@ -97,6 +106,7 @@ jobs:
 
       # ── Backend ────────────────────────────────────────────────────────────────
       - name: Download current backend task definition
+        if: ${{ inputs.backend-image-uri != '' && inputs.backend-task-definition != '' }}
         env:
           TASK_DEF: ${{ inputs.backend-task-definition }}
         run: |
@@ -107,6 +117,7 @@ jobs:
 
       - name: Render new backend task definition
         id: be-taskdef
+        if: ${{ inputs.backend-image-uri != '' && inputs.backend-task-definition != '' }}
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
           task-definition: be-task-definition.json
@@ -114,6 +125,7 @@ jobs:
           image: ${{ inputs.backend-image-uri }}
 
       - name: Deploy backend to ECS
+        if: ${{ inputs.backend-image-uri != '' && inputs.backend-task-definition != '' }}
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
           task-definition: ${{ steps.be-taskdef.outputs.task-definition }}
@@ -123,6 +135,7 @@ jobs:
 
       # ── Frontend ───────────────────────────────────────────────────────────────
       - name: Download current frontend task definition
+        if: ${{ inputs.frontend-image-uri != '' && inputs.frontend-task-definition != '' }}
         env:
           TASK_DEF: ${{ inputs.frontend-task-definition }}
         run: |
@@ -133,6 +146,7 @@ jobs:
 
       - name: Render new frontend task definition
         id: fe-taskdef
+        if: ${{ inputs.frontend-image-uri != '' && inputs.frontend-task-definition != '' }}
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
           task-definition: fe-task-definition.json
@@ -140,6 +154,7 @@ jobs:
           image: ${{ inputs.frontend-image-uri }}
 
       - name: Deploy frontend to ECS
+        if: ${{ inputs.frontend-image-uri != '' && inputs.frontend-task-definition != '' }}
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
           task-definition: ${{ steps.fe-taskdef.outputs.task-definition }}
