@@ -33,7 +33,7 @@ import 'dotenv/config';
       autoLoadEntities: true,
       synchronize: true,
       ssl: {
-        rejectUnauthorized: false,
+        rejectUnauthorized: true, // Đã thay đổi từ 'false' thành 'true' để bật xác minh TLS
       },
     }),
     ScheduleModule.forRoot(),
