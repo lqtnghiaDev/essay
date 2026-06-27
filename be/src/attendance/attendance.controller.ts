@@ -1,32 +1,37 @@
 import {
-  Controller,
-  Get,
-  Post,
-  Delete,
   Body,
+  Controller,
+  Delete,
+  Get,
   Param,
+  Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { AttendanceService } from './attendance.service';
-import { CreateAttendanceDto } from './dto/create-attendance.dto';
 import {
   ApiBearerAuth,
   ApiOperation,
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
-import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { User } from 'src/auth/decorators/user.decorator';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { SimpleUserDto } from 'src/users/dto/simple-user.dto';
+import { AttendanceService } from './attendance.service';
+import { CreateAttendanceDto } from './dto/create-attendance.dto';
 
 @ApiTags('attendance')
 @ApiBearerAuth()
 @Controller('attendance')
 export class AttendanceController {
-  constructor(private readonly attendanceService: AttendanceService) {}
+  constructor(
+    private readonly attendanceService: AttendanceService,
+    @InjectPinoLogger(AttendanceController.name)
+    private readonly logger: PinoLogger,
+  ) { }
 
   @ApiOperation({ summary: 'Intern đăng ký chấm công' })
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -36,7 +41,12 @@ export class AttendanceController {
     @User() user: SimpleUserDto,
     @Body() dto: CreateAttendanceDto,
   ) {
-    return this.attendanceService.registerAttendance(user.id, dto);
+    const result = await this.attendanceService.registerAttendance(user.id, dto);
+    this.logger.info(
+      { user_id: user.id, date: dto.date },
+      'attendance.register',
+    );
+    return result;
   }
 
   @ApiOperation({ summary: 'Intern xem chấm công tuần' })
@@ -130,6 +140,11 @@ export class AttendanceController {
   @Roles('intern')
   @Delete(':id')
   async deleteAttendance(@User() user: SimpleUserDto, @Param('id') id: string) {
-    return this.attendanceService.deleteAttendance(id, user.id);
+    const result = await this.attendanceService.deleteAttendance(id, user.id);
+    this.logger.info(
+      { user_id: user.id, attendance_id: id },
+      'attendance.delete',
+    );
+    return result;
   }
 }
