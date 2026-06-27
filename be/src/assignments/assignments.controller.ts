@@ -9,14 +9,6 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { AssignmentsService } from './assignments.service';
-import { CreateAssignmentDto } from './dto/create-assignment.dto';
-import { SimpleUserDto } from 'src/users/dto/simple-user.dto';
-import { User } from 'src/auth/decorators/user.decorator';
-import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
-import { Roles } from 'src/auth/decorators/roles.decorator';
-import { RolesGuard } from 'src/auth/guards/roles.guard';
-import { UpdateAssignmentDto } from './dto/update-assignment.dto';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -24,12 +16,25 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
+import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+import { User } from 'src/auth/decorators/user.decorator';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { SimpleUserDto } from 'src/users/dto/simple-user.dto';
+import { AssignmentsService } from './assignments.service';
+import { CreateAssignmentDto } from './dto/create-assignment.dto';
+import { UpdateAssignmentDto } from './dto/update-assignment.dto';
 
 @ApiTags('assignments')
 @ApiBearerAuth()
 @Controller('assignments')
 export class AssignmentsController {
-  constructor(private readonly assignmentsService: AssignmentsService) {}
+  constructor(
+    private readonly assignmentsService: AssignmentsService,
+    @InjectPinoLogger(AssignmentsController.name)
+    private readonly logger: PinoLogger,
+  ) { }
 
   @ApiOperation({ summary: 'Create a new assignment' })
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -39,7 +44,12 @@ export class AssignmentsController {
     @Body() payLoad: CreateAssignmentDto,
     @User() user: SimpleUserDto,
   ) {
-    return this.assignmentsService.create(payLoad, user);
+    const result = await this.assignmentsService.create(payLoad, user);
+    this.logger.info(
+      { user_id: user.id, role: user.role, assignment_id: result?.id },
+      'assignment.create',
+    );
+    return result;
   }
 
   @ApiOperation({ summary: 'Get all assignments by user' })
@@ -121,7 +131,12 @@ export class AssignmentsController {
     @User() user: SimpleUserDto,
     @Body('status') status: 'Todo' | 'InProgress' | 'Submitted' | 'Reviewed',
   ) {
-    return this.assignmentsService.updateStatus(id, user, status);
+    const result = await this.assignmentsService.updateStatus(id, user, status);
+    this.logger.info(
+      { user_id: user.id, role: user.role, assignment_id: id, status },
+      'assignment.status_updated',
+    );
+    return result;
   }
 
   @ApiOperation({ summary: 'Submit an assignment' })
@@ -142,7 +157,12 @@ export class AssignmentsController {
     @User() user: SimpleUserDto,
     @Body('submittedLink') payLoad: string,
   ) {
-    return this.assignmentsService.submit(id, user, payLoad);
+    const result = await this.assignmentsService.submit(id, user, payLoad);
+    this.logger.info(
+      { user_id: user.id, assignment_id: id },
+      'assignment.submit',
+    );
+    return result;
   }
 
   @ApiOperation({ summary: 'Review an assignment' })
@@ -163,7 +183,12 @@ export class AssignmentsController {
     @User() user: SimpleUserDto,
     @Body('feedback') payLoad: string,
   ) {
-    return this.assignmentsService.review(id, user, payLoad);
+    const result = await this.assignmentsService.review(id, user, payLoad);
+    this.logger.info(
+      { user_id: user.id, assignment_id: id },
+      'assignment.review',
+    );
+    return result;
   }
 
   @ApiOperation({ summary: 'Restore a deleted assignment' })
@@ -191,6 +216,11 @@ export class AssignmentsController {
   @Roles('admin', 'mentor')
   @Delete(':id')
   async delete(@Param('id') id: string, @User() user: SimpleUserDto) {
-    return this.assignmentsService.softDelete(id, user);
+    const result = await this.assignmentsService.softDelete(id, user);
+    this.logger.info(
+      { user_id: user.id, role: user.role, assignment_id: id },
+      'assignment.delete',
+    );
+    return result;
   }
 }
