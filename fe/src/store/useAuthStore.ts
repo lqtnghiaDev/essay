@@ -1,12 +1,12 @@
 "use client";
 
+import { redirectBasedOnRole } from "@/lib/roleRedirect";
+import { authServices } from "@/services/auth.services";
 import { useLoadingStore } from "@/store/useLoadingStore";
 import { useToastStore } from "@/store/useToastStore";
+import { LoginPayload } from "@/types/auth.type";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { authServices } from "@/services/auth.services";
-import { redirectBasedOnRole } from "@/lib/roleRedirect";
-import { LoginPayload } from "@/types/auth.type";
 
 type UserInfo = {
   id: string;
