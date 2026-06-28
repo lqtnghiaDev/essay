@@ -1,13 +1,12 @@
 // Shared request logic and reporting for all k6 test profiles.
 // Each test file (smoke / load / stress / spike / soak) imports from here and
 // only defines its own `options` (stages, VUs, thresholds).
-import http from "k6/http";
-import { check, sleep } from "k6";
-import { Rate, Trend } from "k6/metrics";
-import { htmlReport } from "https://raw.githubusercontent.com/benc-uk/k6-reporter/main/dist/bundle.js";
 import { textSummary } from "https://jslib.k6.io/k6-summary/0.1.0/index.js";
+import { htmlReport } from "https://raw.githubusercontent.com/benc-uk/k6-reporter/main/dist/bundle.js";
+import { check, sleep } from "k6";
+import http from "k6/http";
+import { Trend } from "k6/metrics";
 
-export const errorRate = new Rate("errors");
 export const pageLoadTrend = new Trend("page_load_time", true);
 
 const BASE_URL = __ENV.TARGET_URL || "http://localhost:80";
@@ -18,7 +17,7 @@ export function iteration() {
   check(indexRes, {
     "index status is 200": (r) => r.status === 200,
     "index has content": (r) => r.body && r.body.length > 0,
-  }) || errorRate.add(1);
+  });
   pageLoadTrend.add(indexRes.timings.duration);
 
   // Next.js serves hashed JS chunks under /_next/static; fetch one if the
@@ -33,7 +32,7 @@ export function iteration() {
     });
     check(assetRes, {
       "static chunk is 200": (r) => r.status === 200,
-    }) || errorRate.add(1);
+    });
   }
 
   sleep(1);
