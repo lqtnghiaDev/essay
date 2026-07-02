@@ -5,7 +5,8 @@ WORKDIR /app
 COPY package*.json ./
 # Keep dotenv v17 while bypassing upstream peer conflict from optional integrations.
 # Also harden install against transient network timeouts in container builds.
-RUN npm ci --legacy-peer-deps
+RUN --mount=type=cache,id=npm-be,target=/root/.npm \
+    npm ci --legacy-peer-deps
 
 # ─── Stage 2: Build ───────────────────────────────────────────────────────────
 FROM node:22-slim AS builder

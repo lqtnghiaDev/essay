@@ -95,6 +95,7 @@ runs:
         restore-keys: nuclei-templates-3.9.0-
 
     - name: Update Nuclei templates
+      if: steps.cache-nuclei-templates.outputs.cache-hit != 'true'
       shell: bash
       run: |
         # Fetch the template repo once. With -disable-update-check on the scan,

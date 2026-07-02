@@ -68,57 +68,63 @@ Key chứa `github.sha` để mỗi commit có cache riêng. Restore key fallbac
 
 ## Docker-level cache
 
-### Kiến trúc: ECR primary + GHA fallback
+### GHA cache (`type=gha`, `mode=max`)
 
-Áp dụng tại: `.github/actions/build-push-ecr/action.yml`.
+Áp dụng tại: `.github/actions/build-push-ecr/action.yml`, cả Build 1 (scan) lẫn Build 2 (push).
 
-| Layer    | Backend                 | `mode` | Mục đích                                            |
-| -------- | ----------------------- | ------ | --------------------------------------------------- |
-| Primary  | ECR `:<ecr-repo>:cache` | `max`  | Toàn bộ intermediate stages (deps, builder, runner) |
-| Fallback | GHA `type=gha`          | `min`  | Chỉ final stage, dùng khi ECR cache chưa có         |
-
-**Tại sao không dùng GHA `mode=max` cho Docker:**
-GHA cache giới hạn 10GB/repo chung với npm/Jest/Next.js. NestJS image (có Chromium) + 3-stage build với `mode=max` chiếm 500MB-1GB, dễ đẩy npm/Jest cache ra khỏi quota (LRU eviction).
-
-### ECR cache tag
-
-Mỗi ECR repository sẽ có thêm tag `:cache` — đây là BuildKit cache manifest, không phải production image.
-
-```
-<account>.dkr.ecr.<region>.amazonaws.com/<repo>:cache
+```yaml
+cache-from: type=gha
+cache-to: type=gha,mode=max
 ```
 
-Nên thêm ECR lifecycle policy để dọn tag này định kỳ nếu cần kiểm soát storage:
+`mode=max` lưu toàn bộ intermediate layers của tất cả stages (deps, builder, runner) — đảm bảo cache hit ngay cả khi chỉ final stage thay đổi.
 
-```json
-{
-  "rules": [
-    {
-      "rulePriority": 10,
-      "selection": {
-        "tagStatus": "tagged",
-        "tagPrefixList": ["cache"],
-        "countType": "sinceImagePushed",
-        "countUnit": "days",
-        "countNumber": 30
-      },
-      "action": { "type": "expire" }
-    }
-  ]
-}
+**Tại sao không dùng production ECR repo làm cache backend:**
+`ecr-global-api` bật **immutable tags** — BuildKit cần ghi đè tag `:cache` sau mỗi build, xung đột trực tiếp:
+
 ```
+ERROR: The image tag 'cache' already exists in the 'ecr-global-api'
+repository and cannot be overwritten because the tag is immutable.
+```
+
+**Giải pháp: dùng `ecr-global-otel-collector`** (mutable tags) làm dedicated cache repo, truyền qua input `ecr-cache-repository`. Logic trong action:
+
+```
+ecr-cache-repository set   →  cache-from/to: ECR (primary) + GHA mode=min (fallback)
+ecr-cache-repository empty →  cache-from/to: GHA mode=max
+```
+
+Ưu điểm ECR cache so với GHA:
+- Không tính vào 10GB GHA quota
+- Persist qua nhiều tuần, không bị LRU evict
+- Runner (EC2) pull từ ECR cùng region nhanh hơn GitHub servers
+
+**GHA quota thực tế cho repo này:**
+
+| Cache | Ước tính |
+|---|---|
+| npm (×2 repos) | ~400MB |
+| Jest | ~50MB |
+| Next.js build | ~200MB |
+| Trivy DB | ~100MB |
+| Nuclei binary + templates | ~360MB |
+| k6 binary | ~5MB |
+| Docker GHA `mode=max` | ~600MB-1GB |
+| **Tổng** | **~1.7-2GB / 10GB** |
+
+Dư nhiều so với giới hạn 10GB — không cần lo LRU eviction.
 
 ### Flow của build-push-ecr
 
 ```
 Build 1 (scan)
-  cache-from: ECR:cache → GHA (fallback)
-  cache-to:   ECR:cache mode=max + GHA mode=min
+  cache-from: GHA
+  cache-to:   GHA mode=max   ← lưu all layers
   output:     load vào Docker daemon local → Trivy scan
 
 Build 2 (push)
-  cache-from: ECR:cache → GHA (fallback)   ← warm từ Build 1
-  cache-to:   GHA mode=min                 ← không ghi lại ECR
+  cache-from: GHA            ← warm từ Build 1
+  cache-to:   GHA mode=max
   output:     push lên ECR với tag thật
 ```
 
