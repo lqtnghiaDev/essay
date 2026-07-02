@@ -64,6 +64,14 @@ jobs:
         working-directory: fe
         run: npm ci
 
+      - name: Cache Next.js build
+        uses: actions/cache@v4
+        with:
+          path: fe/.next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('fe/package-lock.json') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('fe/package-lock.json') }}-
+
       - name: Build with sourcemaps
         working-directory: fe
         env:

@@ -54,7 +54,15 @@ runs:
     # cache-save races parallel jobs). Running the binary directly also lets us
     # own the exit code — DAST findings or transient scan errors must not fail
     # the pipeline (continue-on-error is unreliable inside composite actions).
+    - name: Cache Nuclei binary
+      id: cache-nuclei-bin
+      uses: actions/cache@v4
+      with:
+        path: ~/nuclei-bin
+        key: nuclei-bin-3.9.0-linux-amd64
+
     - name: Install Nuclei
+      if: steps.cache-nuclei-bin.outputs.cache-hit != 'true'
       shell: bash
       env:
         NUCLEI_VERSION: "3.9.0"
@@ -64,8 +72,31 @@ runs:
         curl -sSfL -o "${tmp}/nuclei.zip" \
           "https://github.com/projectdiscovery/nuclei/releases/download/v${NUCLEI_VERSION}/nuclei_${NUCLEI_VERSION}_linux_amd64.zip"
         unzip -o "${tmp}/nuclei.zip" nuclei -d "${tmp}"
-        sudo install -m 0755 "${tmp}/nuclei" /usr/local/bin/nuclei
+        mkdir -p ~/nuclei-bin
+        cp "${tmp}/nuclei" ~/nuclei-bin/nuclei
+
+    - name: Add Nuclei to PATH
+      shell: bash
+      run: |
+        sudo install -m 0755 ~/nuclei-bin/nuclei /usr/local/bin/nuclei
         nuclei -version
+
+    - name: Get week for Nuclei template cache key
+      id: nuclei-week
+      shell: bash
+      run: echo "week=$(date +'%Y-W%V')" >> "$GITHUB_OUTPUT"
+
+    - name: Cache Nuclei templates
+      id: cache-nuclei-templates
+      uses: actions/cache@v4
+      with:
+        path: ~/.local/nuclei-templates
+        key: nuclei-templates-3.9.0-${{ steps.nuclei-week.outputs.week }}
+        restore-keys: nuclei-templates-3.9.0-
+
+    - name: Update Nuclei templates
+      shell: bash
+      run: |
         # Fetch the template repo once. With -disable-update-check on the scan,
         # Nuclei won't auto-download templates, so a fresh runner has none.
         nuclei -update-templates

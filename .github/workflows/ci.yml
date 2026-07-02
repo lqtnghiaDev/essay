@@ -66,6 +66,14 @@ jobs:
       - name: Install dependencies
         run: npm ci ${{ inputs.install-flags }}
 
+      - name: Cache Jest transforms
+        uses: actions/cache@v4
+        with:
+          path: ${{ inputs.working-directory }}/.jest-cache
+          key: ${{ runner.os }}-jest-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-jest-
+
       - name: Lint
         continue-on-error: true
         run: npm run lint

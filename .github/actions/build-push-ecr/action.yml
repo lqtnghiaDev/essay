@@ -87,8 +87,12 @@ runs:
         load: true
         tags: scan-target:local
         build-args: ${{ inputs.build-args }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+        cache-from: |
+          type=registry,ref=${{ steps.login-ecr.outputs.registry }}/${{ inputs.ecr-repository }}:cache
+          type=gha
+        cache-to: |
+          type=registry,ref=${{ steps.login-ecr.outputs.registry }}/${{ inputs.ecr-repository }}:cache,mode=max
+          type=gha,mode=min
 
     - name: Run Trivy image scan
       uses: aquasecurity/trivy-action@master
@@ -98,6 +102,7 @@ runs:
         output: trivy-image-results.sarif
         severity: ${{ inputs.trivy-severity }}
         scanners: vuln,secret,misconfig
+        cache: "true"
 
     - name: Push image to ECR
       uses: docker/build-push-action@v7
@@ -108,8 +113,10 @@ runs:
         tags: ${{ steps.meta.outputs.tags }}
         build-args: ${{ inputs.build-args }}
         platforms: ${{ inputs.platforms }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+        cache-from: |
+          type=registry,ref=${{ steps.login-ecr.outputs.registry }}/${{ inputs.ecr-repository }}:cache
+          type=gha
+        cache-to: type=gha,mode=min
 
     - name: Upload Trivy image results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v4

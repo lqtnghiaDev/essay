@@ -24,10 +24,11 @@ WORKDIR /app
 
 # tini: forwards SIGTERM from EKS to Node and reaps zombie processes.
 # chromium: required by puppeteer-core (RAG document extraction).
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN --mount=type=cache,id=apt-be,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,id=apt-be-lists,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
     chromium \
-    tini \
-    && rm -rf /var/lib/apt/lists/*
+    tini
 
 # Non-secret config only — secrets are injected at runtime by the
 # Secrets Store CSI Driver or External Secrets Operator.
