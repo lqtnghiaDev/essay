@@ -104,7 +104,7 @@ jobs:
         run: npm ci ${{ inputs.install-flags }}
 
       - name: Cache Jest transforms
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ inputs.working-directory }}/.jest-cache
           key: ${{ runner.os }}-jest-${{ hashFiles('**/package-lock.json') }}
@@ -161,7 +161,7 @@ jobs:
         run: npm ci ${{ inputs.install-flags }}
 
       - name: Cache Next.js build
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ inputs.working-directory }}/.next/cache
           key: ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-${{ github.sha }}

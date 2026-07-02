@@ -24,7 +24,7 @@ runs:
 
     - name: Cache k6 binary
       id: cache-k6
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: ~/k6-bin
         key: k6-linux-amd64-${{ steps.k6-week.outputs.week }}

@@ -67,7 +67,7 @@ jobs:
         run: npm ci ${{ inputs.install-flags }}
 
       - name: Cache Jest transforms
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ inputs.working-directory }}/.jest-cache
           key: ${{ runner.os }}-jest-${{ hashFiles('**/package-lock.json') }}

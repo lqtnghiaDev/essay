@@ -56,7 +56,7 @@ runs:
     # the pipeline (continue-on-error is unreliable inside composite actions).
     - name: Cache Nuclei binary
       id: cache-nuclei-bin
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: ~/nuclei-bin
         key: nuclei-bin-3.9.0-linux-amd64
@@ -88,7 +88,7 @@ runs:
 
     - name: Cache Nuclei templates
       id: cache-nuclei-templates
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: ~/.local/nuclei-templates
         key: nuclei-templates-3.9.0-${{ steps.nuclei-week.outputs.week }}

@@ -65,7 +65,7 @@ jobs:
         run: npm ci
 
       - name: Cache Next.js build
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: fe/.next/cache
           key: ${{ runner.os }}-nextjs-${{ hashFiles('fe/package-lock.json') }}-${{ github.sha }}
