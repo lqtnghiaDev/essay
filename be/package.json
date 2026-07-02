@@ -117,6 +117,7 @@
       "src/**/*.(t|j)s"
     ],
     "coverageDirectory": "coverage",
+    "cacheDirectory": "<rootDir>/.jest-cache",
     "testEnvironment": "node"
   }
 }

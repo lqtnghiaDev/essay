@@ -17,12 +17,33 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Install k6
+    - name: Get week for k6 cache key
+      id: k6-week
+      shell: bash
+      run: echo "week=$(date +'%Y-W%V')" >> "$GITHUB_OUTPUT"
+
+    - name: Cache k6 binary
+      id: cache-k6
+      uses: actions/cache@v6
+      with:
+        path: ~/k6-bin
+        key: k6-linux-amd64-${{ steps.k6-week.outputs.week }}
+        restore-keys: k6-linux-amd64-
+
+    - name: Install k6 from apt
+      if: steps.cache-k6.outputs.cache-hit != 'true'
       shell: bash
       run: |
         curl -fsSL https://dl.k6.io/key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/k6-archive-keyring.gpg
         echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
         sudo apt-get update && sudo apt-get install -y k6
+        mkdir -p ~/k6-bin
+        cp "$(command -v k6)" ~/k6-bin/k6
+
+    - name: Install k6 from cache
+      if: steps.cache-k6.outputs.cache-hit == 'true'
+      shell: bash
+      run: sudo install -m 0755 ~/k6-bin/k6 /usr/local/bin/k6
 
     - name: Run k6 load test
       id: k6

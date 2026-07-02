@@ -37,6 +37,7 @@ runs:
         scan-ref: ${{ inputs.WORKING_DIRECTORY }}
         format: "table"
         severity: ${{ inputs.TRIVY_SEVERITY }}
+        cache: "true"
         # exit-code: "1"
 
     - name: Run Trivy filesystem scan (SARIF)
@@ -48,6 +49,7 @@ runs:
         format: "sarif"
         output: "trivy-fs-results.sarif"
         severity: ${{ inputs.TRIVY_SEVERITY }}
+        cache: "true"
 
     - name: Upload Trivy SARIF
       uses: github/codeql-action/upload-sarif@v4
@@ -69,6 +71,8 @@ runs:
       uses: actions/setup-node@v6
       with:
         node-version: ${{ inputs.NODE_VERSION }}
+        cache: npm
+        cache-dependency-path: ${{ inputs.WORKING_DIRECTORY }}/package-lock.json
 
     - name: Install dependencies for Snyk
       shell: bash
@@ -98,6 +102,12 @@ runs:
         retention-days: 7
 
     # ── Semgrep — SAST (static application security testing) ────────────────
+    - name: Setup Python for Semgrep
+      uses: actions/setup-python@v6
+      with:
+        python-version: "3.x"
+        cache: pip
+
     - name: Install Semgrep
       shell: bash
       run: pip install semgrep --quiet

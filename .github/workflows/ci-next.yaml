@@ -92,6 +92,8 @@ jobs:
           aws-region: ${{ needs.resolve.outputs.region }}
           aws-oidc-role: ${{ vars.AWS_OIDC_ROLE }}
           ecr-repository: ${{ needs.resolve.outputs.ecr-repository }}
+          ecr-cache-repository: ecr-global-otel-collector
+          ecr-cache-tag: cache-fe
           image-tag: ${{ needs.resolve.outputs.image-tag }}
           context: ${{ env.BUILD_CONTEXT }}
           dockerfile: ${{ env.BUILD_DOCKERFILE }}
