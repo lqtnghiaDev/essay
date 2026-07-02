@@ -40,6 +40,10 @@ inputs:
     description: ECR repository name for BuildKit layer cache (must have mutable tags, e.g. ecr-global-otel-collector)
     required: false
     default: ""
+  ecr-cache-tag:
+    description: ECR tag for BuildKit cache (use a unique value per image to avoid overwriting, e.g. cache-be, cache-fe)
+    required: false
+    default: "cache"
 
 outputs:
   image-uri:
@@ -86,13 +90,14 @@ runs:
         REGISTRY="${{ steps.login-ecr.outputs.registry }}"
         CACHE_REPO="${{ inputs.ecr-cache-repository }}"
         if [ -n "${CACHE_REPO}" ]; then
+          CACHE_TAG="${{ inputs.ecr-cache-tag }}"
           {
             echo "from<<EOF"
-            echo "type=registry,ref=${REGISTRY}/${CACHE_REPO}:cache"
+            echo "type=registry,ref=${REGISTRY}/${CACHE_REPO}:${CACHE_TAG}"
             echo "type=gha"
             echo "EOF"
             echo "to<<EOF"
-            echo "type=registry,ref=${REGISTRY}/${CACHE_REPO}:cache,mode=max"
+            echo "type=registry,ref=${REGISTRY}/${CACHE_REPO}:${CACHE_TAG},mode=max"
             echo "type=gha,mode=min"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
