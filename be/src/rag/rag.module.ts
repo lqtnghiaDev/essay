@@ -10,8 +10,12 @@ import { Assignment } from 'src/assignments/entities/assignment.entity';
 import { DocumentExtractorService } from './services/document-extractor.service';
 import { EmbeddingService } from './services/embedding.service';
 import { VectorStoreService } from './services/vector-store.service';
+import { ElasticsearchService } from './services/elasticsearch.service';
 import { IndexingService } from './services/indexing.service';
+import { RetrievalService } from './services/retrieval.service';
 import { RagController } from './rag.controller';
+import { RagDebugController } from './controllers/rag-debug.controller';
+import { LlmModule } from 'src/llm/llm.module';
 
 @Module({
   imports: [
@@ -24,14 +28,17 @@ import { RagController } from './rag.controller';
       Skill,
       Assignment,
     ]),
+    LlmModule,
   ],
-  controllers: [RagController],
+  controllers: [RagController, RagDebugController],
   providers: [
     DocumentExtractorService,
     EmbeddingService,
     VectorStoreService,
+    ElasticsearchService,
     IndexingService,
+    RetrievalService,
   ],
-  exports: [VectorStoreService, EmbeddingService],
+  exports: [VectorStoreService, EmbeddingService, RetrievalService],
 })
 export class RagModule {}

@@ -20,6 +20,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@elastic/elasticsearch": "^8.19.1",
     "@google/genai": "^1.40.0",
     "@langchain/community": "^0.3.30",
     "@langchain/core": "^0.3.25",

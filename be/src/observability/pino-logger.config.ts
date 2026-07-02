@@ -25,6 +25,17 @@ export const pinoLoggerConfig: Params = {
     timestamp: () => `,"time":"${new Date().toISOString()}"`,
     formatters: {
       level: (label) => ({ level: label }),
+      bindings: (bindings) => ({
+        pid: bindings.pid,
+        node_version: process.version,
+      }),
+      log: (record) => {
+        // Ensure proper UTF-8 encoding for Vietnamese characters
+        if (record.msg && typeof record.msg === 'string') {
+          record.msg = Buffer.from(record.msg, 'utf8').toString('utf8');
+        }
+        return record;
+      },
     },
     genReqId: (req, res) => {
       const headerRequestId = req.headers['x-request-id'];

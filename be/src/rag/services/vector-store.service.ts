@@ -1,33 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Document } from '@langchain/core/documents';
-import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
 import { Chroma } from '@langchain/community/vectorstores/chroma';
 import { MemoryVectorStore } from 'langchain/vectorstores/memory';
 import { VectorStore } from '@langchain/core/vectorstores';
 import { EmbeddingService } from './embedding.service';
+import { RAG_COLLECTION_NAME, RAG_TOP_K } from '../rag.constants';
+import type { RagDocument } from '../interfaces/rag-document.interface';
 import {
-  RAG_COLLECTION_NAME,
-  RAG_CHUNK_SIZE,
-  RAG_CHUNK_OVERLAP,
-  RAG_TOP_K,
-} from '../rag.constants';
-import type {
-  RagDocument,
-  RagDocumentMetadata,
-} from '../interfaces/rag-document.interface';
-
-/** Metadata as flat record for Chroma filter (string values) */
-function toChromaMetadata(meta: RagDocumentMetadata): Record<string, string> {
-  const out: Record<string, string> = {
-    scope: meta.scope,
-    type: meta.type,
-    entityId: meta.entityId,
-  };
-  if (meta.mentorId) out.mentorId = meta.mentorId;
-  if (meta.internId) out.internId = meta.internId;
-  return out;
-}
+  chunkRagDocuments,
+  ragChunkToLangChainDocument,
+} from '../utils/rag-chunk.util';
 
 @Injectable()
 export class VectorStoreService {
@@ -35,11 +18,6 @@ export class VectorStoreService {
   private vectorStore: VectorStore | null = null;
   private readonly chromaUrl: string | null;
   private readonly collectionName = RAG_COLLECTION_NAME;
-  private readonly textSplitter = new RecursiveCharacterTextSplitter({
-    chunkSize: RAG_CHUNK_SIZE,
-    chunkOverlap: RAG_CHUNK_OVERLAP,
-    separators: ['\n\n', '\n', '. ', ' ', ''],
-  });
 
   constructor(
     private configService: ConfigService,
@@ -97,21 +75,6 @@ export class VectorStoreService {
   }
 
   /**
-   * Chunk RagDocuments and convert to LangChain Document with metadata
-   */
-  private async chunkDocuments(documents: RagDocument[]): Promise<Document[]> {
-    const langchainDocs: Document[] = [];
-    for (const doc of documents) {
-      const chunks = await this.textSplitter.splitText(doc.content);
-      const meta = toChromaMetadata(doc.metadata);
-      for (const text of chunks) {
-        langchainDocs.push(new Document({ pageContent: text, metadata: meta }));
-      }
-    }
-    return langchainDocs;
-  }
-
-  /**
    * Add documents to vector store (chunk -> embed -> add). Replaces collection if Chroma; appends if InMemory.
    */
   async addDocuments(documents: RagDocument[]): Promise<void> {
@@ -119,7 +82,8 @@ export class VectorStoreService {
     const embeddings = this.embeddingService.getEmbeddings();
     if (!embeddings) return;
 
-    const chunked = await this.chunkDocuments(documents);
+    const chunks = await chunkRagDocuments(documents);
+    const chunked = chunks.map(ragChunkToLangChainDocument);
     const store = this.getVectorStore();
     if (!store) return;
 
@@ -155,16 +119,37 @@ export class VectorStoreService {
     filter: { scope: string; mentorId?: string; internId?: string },
   ): Promise<Document[]> {
     const store = this.getVectorStore();
-    if (!store) return [];
+    if (!store) {
+      this.logger.warn(
+        'Vector store không được khởi tạo. Có thể do embeddings chưa được cấu hình.',
+      );
+      return [];
+    }
 
-    const where: Record<string, string> = { scope: filter.scope };
-    if (filter.mentorId) where.mentorId = filter.mentorId;
-    if (filter.internId) where.internId = filter.internId;
+    // Chroma 'where' expects a single operator or a single condition.
+    // When multiple filters exist, wrap them with an explicit $and operator.
+    const conditions: Record<string, string>[] = [{ scope: filter.scope }];
+    if (filter.mentorId) conditions.push({ mentorId: filter.mentorId });
+    if (filter.internId) conditions.push({ internId: filter.internId });
+
+    let where: any;
+    if (conditions.length === 1) {
+      where = conditions[0];
+    } else {
+      where = { $and: conditions };
+    }
 
     try {
+      this.logger.debug(
+        `Tìm kiếm vector store. Query: "${query.substring(0, 100)}...", k: ${k}, filter: ${JSON.stringify(filter)}`,
+      );
+
       let results: Document[];
       if (store instanceof Chroma) {
         results = await store.similaritySearch(query, k, where);
+        this.logger.debug(
+          `Chroma similarity search trả về ${results.length} kết quả`,
+        );
       } else {
         const filterFn = (doc: Document) => {
           const m = doc.metadata as Record<string, string>;
@@ -178,10 +163,20 @@ export class VectorStoreService {
           k,
           filterFn,
         );
+        this.logger.debug(
+          `In-memory similarity search trả về ${results.length} kết quả`,
+        );
       }
       return results.slice(0, k);
-    } catch (e) {
-      this.logger.error('Similarity search failed', e);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      const storeType = store instanceof Chroma ? 'Chroma' : 'In-Memory';
+      this.logger.error(
+        `Similarity search thất bại (${storeType}). Query: "${query.substring(0, 100)}...". Chi tiết lỗi: ${errorMessage}`,
+        errorStack,
+      );
       return [];
     }
   }

@@ -10,22 +10,32 @@ export interface ChatMessage {
 @Injectable()
 export class LlmService {
   private readonly logger = new Logger(LlmService.name);
-  private readonly client: GoogleGenAI | null = null;
+  private client: GoogleGenAI | null = null;
   private readonly model: string;
-  private readonly isConfigured: boolean = false;
+  private readonly isConfigured: boolean;
 
   constructor(private configService: ConfigService) {
     const apiKey = this.configService.get<string>('GEMINI_API_KEY');
 
     if (apiKey) {
-      this.client = new GoogleGenAI({ apiKey });
-      this.isConfigured = true;
-      this.logger.log(
-        'Google Gemini API (@google/genai) đã được cấu hình thành công',
-      );
+      try {
+        this.client = new GoogleGenAI({ apiKey });
+        this.isConfigured = true;
+        this.logger.log(
+          `LLM API key được cấu hình thành công từ GEMINI_API_KEY. Model: ${this.configService.get<string>('GEMINI_MODEL') || 'gemini-2.5-flash'}`,
+        );
+      } catch (error) {
+        this.isConfigured = false;
+        this.logger.error(
+          'Lỗi khởi tạo LLM client. Chi tiết:',
+          error instanceof Error ? error.message : String(error),
+          error instanceof Error ? error.stack : undefined,
+        );
+      }
     } else {
+      this.isConfigured = false;
       this.logger.warn(
-        '⚠️ GEMINI_API_KEY chưa được cấu hình. Chat sẽ trả về fallback message.',
+        'GEMINI_API_KEY chưa được cấu hình. Chat sẽ trả về fallback message.',
       );
     }
 
@@ -37,7 +47,8 @@ export class LlmService {
    * Tạo phản hồi từ LLM
    */
   async generateResponse(messages: ChatMessage[]): Promise<string> {
-    if (!this.client) {
+    if (!this.client || !this.isConfigured) {
+      this.logger.warn('LLM client chưa được cấu hình, trả về fallback message');
       return 'Hệ thống AI chưa được cấu hình. Vui lòng liên hệ quản trị viên.';
     }
 
@@ -57,8 +68,12 @@ ${conversationHistory}
 
 Assistant:`;
 
+      this.logger.debug(
+        `Gọi Gemini API với model: ${this.model}, prompt length: ${fullPrompt.length}`,
+      );
+
       const result = await this.client.models.generateContent({
-        model: this.model, // gemini-2.5-flash
+        model: this.model,
         contents: [
           {
             role: 'user',
@@ -67,14 +82,23 @@ Assistant:`;
         ],
       });
 
-      // SDK mới chỉ dùng result.text
-      if (!result.text) {
-        throw new Error('Không nhận được phản hồi từ Gemini');
+      if (!result || !result.text) {
+        const errorMsg = `Không nhận được phản hồi từ Gemini. Result: ${JSON.stringify(result)}`;
+        this.logger.error(errorMsg);
+        throw new Error(errorMsg);
       }
 
+      this.logger.debug(
+        `Gemini API trả về thành công. Response length: ${result.text.length}`,
+      );
       return result.text;
     } catch (error) {
-      this.logger.error('Lỗi khi gọi Gemini API', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(
+        `Lỗi khi gọi Gemini API với model ${this.model}. Chi tiết: ${errorMessage}`,
+        errorStack,
+      );
       return 'Xin lỗi, tôi đang gặp sự cố kết nối. Vui lòng thử lại sau.';
     }
   }

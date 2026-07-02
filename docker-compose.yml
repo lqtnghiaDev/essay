@@ -20,6 +20,7 @@ services:
       OTEL_SERVICE_NAME: internship-management-be
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
       LOG_LEVEL: info
+      ELASTICSEARCH_URL: http://elasticsearch:9200
     healthcheck:
       test: ["CMD", "node", "-e",
         "require('net').createConnection(3000,'localhost').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))"]
@@ -29,6 +30,8 @@ services:
       retries: 3
     depends_on:
       jaeger:
+        condition: service_started
+      elasticsearch:
         condition: service_started
 
   # ── Frontend (Next.js) ────────────────────────────────────────────────────────
@@ -86,6 +89,19 @@ services:
       - "9200:9200"
     volumes:
       - elasticsearch_data:/usr/share/elasticsearch/data
+
+  chroma:
+    image: chromadb/chroma:0.5.23
+    profiles:
+      - rag
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    environment:
+      IS_PERSISTENT: "TRUE"
+      ANONYMIZED_TELEMETRY: "FALSE"
 
   kibana:
     image: docker.elastic.co/kibana/kibana:8.15.0
