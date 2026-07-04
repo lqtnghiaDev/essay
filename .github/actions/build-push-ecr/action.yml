@@ -92,14 +92,8 @@ runs:
         if [ -n "${CACHE_REPO}" ]; then
           CACHE_TAG="${{ inputs.ecr-cache-tag }}"
           {
-            echo "from<<EOF"
-            echo "type=registry,ref=${REGISTRY}/${CACHE_REPO}:${CACHE_TAG}"
-            echo "type=gha"
-            echo "EOF"
-            echo "to<<EOF"
-            echo "type=registry,ref=${REGISTRY}/${CACHE_REPO}:${CACHE_TAG},mode=max"
-            echo "type=gha,mode=min"
-            echo "EOF"
+            echo "from=type=registry,ref=${REGISTRY}/${CACHE_REPO}:${CACHE_TAG}"
+            echo "to=type=registry,ref=${REGISTRY}/${CACHE_REPO}:${CACHE_TAG},mode=max"
           } >> "$GITHUB_OUTPUT"
         else
           {
