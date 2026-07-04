@@ -68,16 +68,54 @@ Key chứa `github.sha` để mỗi commit có cache riêng. Restore key fallbac
 
 ## Docker-level cache
 
-### GHA cache (`type=gha`, `mode=max`)
+### BuildKit cache modes
 
-Áp dụng tại: `.github/actions/build-push-ecr/action.yml`, cả Build 1 (scan) lẫn Build 2 (push).
+`mode=` chỉ áp dụng cho `cache-to` (write), không phải `cache-from`.
 
-```yaml
-cache-from: type=gha
-cache-to: type=gha,mode=max
+**`mode=min` (default):** Chỉ lưu layers của final stage.
+
+```dockerfile
+FROM node AS deps       # NOT cached
+FROM node AS builder    # NOT cached
+FROM node AS runner     # cached (final only)
 ```
 
-`mode=max` lưu toàn bộ intermediate layers của tất cả stages (deps, builder, runner) — đảm bảo cache hit ngay cả khi chỉ final stage thay đổi.
+**`mode=max`:** Lưu layers của tất cả stages, kể cả intermediate.
+
+```dockerfile
+FROM node AS deps       # cached
+FROM node AS builder    # cached
+FROM node AS runner     # cached
+```
+
+| | `mode=min` | `mode=max` |
+|---|---|---|
+| Lưu gì | Final stage only | Tất cả stages |
+| Cache size | Nhỏ | Lớn (~2-3x) |
+| Hit rate | Thấp hơn | Cao hơn |
+| Phù hợp | Single-stage image | Multi-stage build |
+
+Repo này dùng `mode=max` — `deps` stage (npm install / apt chromium) tốn nhất, phải được cache. Nếu dùng `mode=min`, thay đổi bất kỳ ở `deps` hoặc `builder` đều miss toàn bộ.
+
+### Cache backends (`type=`)
+
+| Backend | Lưu ở đâu | Quota | Persist |
+|---|---|---|---|
+| `type=gha` | GitHub cache servers | 10GB/repo | 7 ngày không dùng |
+| `type=registry` | Container registry (ECR) | Unlimited | Cho đến khi xóa |
+| `type=local` | Local filesystem | Disk của runner | Không persist |
+| `type=s3` | S3 bucket | Unlimited | Cho đến khi xóa |
+
+### ECR cache (`type=registry`, `mode=max`) — primary
+
+Áp dụng tại: `.github/actions/build-push-ecr/action.yml` khi `ecr-cache-repository` được truyền vào.
+
+```yaml
+cache-from: type=registry,ref=<ECR>/<cache-repo>:<cache-tag>
+cache-to:   type=registry,ref=<ECR>/<cache-repo>:<cache-tag>,mode=max
+```
+
+`mode=max` lưu toàn bộ intermediate layers của tất cả stages (deps, builder, runner). ECR cùng region với runner → write <1s.
 
 **Tại sao không dùng production ECR repo làm cache backend:**
 `ecr-global-api` bật **immutable tags** — BuildKit cần ghi đè tag `:cache` sau mỗi build, xung đột trực tiếp:
@@ -90,11 +128,13 @@ repository and cannot be overwritten because the tag is immutable.
 **Giải pháp: dùng `ecr-global-otel-collector`** (mutable tags) làm dedicated cache repo, truyền qua input `ecr-cache-repository`. Logic trong action:
 
 ```
-ecr-cache-repository set   →  cache-from/to: ECR (primary) + GHA mode=min (fallback)
+ecr-cache-repository set   →  cache-from: ECR only
+                               cache-to:   ECR mode=max only
 ecr-cache-repository empty →  cache-from/to: GHA mode=max
 ```
 
 Ưu điểm ECR cache so với GHA:
+
 - Không tính vào 10GB GHA quota
 - Persist qua nhiều tuần, không bị LRU evict
 - Runner (EC2) pull từ ECR cùng region nhanh hơn GitHub servers
@@ -109,24 +149,29 @@ ecr-cache-repository empty →  cache-from/to: GHA mode=max
 | Trivy DB | ~100MB |
 | Nuclei binary + templates | ~360MB |
 | k6 binary | ~5MB |
-| Docker GHA `mode=max` | ~600MB-1GB |
-| **Tổng** | **~1.7-2GB / 10GB** |
+| Docker GHA (fallback read only) | ~0MB (không ghi khi ECR set) |
+| **Tổng** | **~1.1-1.3GB / 10GB** |
 
 Dư nhiều so với giới hạn 10GB — không cần lo LRU eviction.
 
 ### Flow của build-push-ecr
 
+Khi `ecr-cache-repository` được set (ci-nest.yaml, ci-next.yaml):
+
 ```
 Build 1 (scan)
-  cache-from: GHA
-  cache-to:   GHA mode=max   ← lưu all layers
+  cache-from: ECR:cache-be/fe
+  cache-to:   ECR:cache-be/fe mode=max
   output:     load vào Docker daemon local → Trivy scan
 
 Build 2 (push)
-  cache-from: GHA            ← warm từ Build 1
-  cache-to:   GHA mode=max
+  cache-from: ECR:cache-be/fe   ← warm từ Build 1
+  cache-to:   ECR:cache-be/fe mode=max
   output:     push lên ECR với tag thật
 ```
+
+**Tag phân biệt per-image:**
+Backend dùng `cache-be`, frontend dùng `cache-fe` trong cùng repo `ecr-global-otel-collector`. Tránh overwrite lẫn nhau khi cả hai workflow chạy song song.
 
 ---
 
@@ -210,6 +255,44 @@ cache: "true"
 ```
 
 `aquasecurity/trivy-action` tự quản lý cache tại `~/.cache/trivy` qua `actions/cache`. Tránh download DB (~100MB) mỗi run.
+
+---
+
+## Lỗi đã gặp và lý do thay đổi
+
+### 1. ECR immutable tag error
+
+**Triệu chứng:**
+```
+ERROR: The image tag 'cache' already exists in the 'ecr-global-api'
+repository and cannot be overwritten because the tag is immutable.
+```
+
+**Nguyên nhân:** `ecr-global-api` bật immutable tags. BuildKit `cache-to: type=registry` cần ghi đè tag `:cache` sau mỗi build — xung đột trực tiếp.
+
+**Fix:** Dùng `ecr-global-otel-collector` (mutable tags) làm dedicated cache repo thay vì production repo. Truyền qua input `ecr-cache-repository`.
+
+---
+
+### 2. Docker build hang sau khi ECR write xong
+
+**Triệu chứng:** Build log kẹt tại `#24 exporting to GitHub Actions Cache` >20s/layer sau khi `#25 exporting cache to registry` (ECR) đã done trong <1s.
+
+**Nguyên nhân:** `cache-to` lúc đó ghi vào cả ECR lẫn GHA đồng thời. ECR cùng region xong ngay, nhưng GHA upload từng layer qua HTTPS:
+- Layer Chromium: ~255MB
+- Layer node_modules: ~124MB
+
+Hai write độc lập không đợi nhau — pipeline block cho đến khi GHA upload xong.
+
+**Fix:** Khi `ecr-cache-repository` được set, `cache-to` chỉ ghi ECR. GHA không còn được dùng cho Docker layer cache.
+
+---
+
+### 3. GHA fallback read bị xóa
+
+**Nguyên nhân:** Sau khi fix #2, `cache-from` vẫn còn `type=gha` làm fallback read. Không còn cần thiết vì ECR là nguồn duy nhất — giữ lại chỉ làm phức tạp thêm mà không có lợi ích thực tế (GHA không bao giờ có Docker layer cache từ sau fix #2).
+
+**Fix:** Xóa `type=gha` khỏi `cache-from` khi ECR được set.
 
 ---
 
