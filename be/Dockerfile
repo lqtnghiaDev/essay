@@ -5,7 +5,8 @@ WORKDIR /app
 COPY package*.json ./
 # Keep dotenv v17 while bypassing upstream peer conflict from optional integrations.
 # Also harden install against transient network timeouts in container builds.
-RUN npm ci --legacy-peer-deps
+RUN --mount=type=cache,id=npm-be,target=/root/.npm \
+    npm ci --legacy-peer-deps
 
 # ─── Stage 2: Build ───────────────────────────────────────────────────────────
 FROM node:22-slim AS builder
@@ -24,10 +25,11 @@ WORKDIR /app
 
 # tini: forwards SIGTERM from EKS to Node and reaps zombie processes.
 # chromium: required by puppeteer-core (RAG document extraction).
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN --mount=type=cache,id=apt-be,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,id=apt-be-lists,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
     chromium \
-    tini \
-    && rm -rf /var/lib/apt/lists/*
+    tini
 
 # Non-secret config only — secrets are injected at runtime by the
 # Secrets Store CSI Driver or External Secrets Operator.

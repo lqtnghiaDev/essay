@@ -1,13 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { User } from 'src/users/entities/user.entity';
-import { InternInformation } from 'src/interns-information/entities/intern-information.entity';
-import { TrainingPlan } from 'src/training-plans/entities/training-plan.entity';
-import { Task } from 'src/tasks/entities/task.entity';
-import { Attendance } from 'src/attendance/entities/attendance.entity';
-import { Skill } from 'src/skills/entities/skill.entity';
 import { Assignment } from 'src/assignments/entities/assignment.entity';
+import { Attendance } from 'src/attendance/entities/attendance.entity';
+import { InternInformation } from 'src/interns-information/entities/intern-information.entity';
+import { Skill } from 'src/skills/entities/skill.entity';
+import { Task } from 'src/tasks/entities/task.entity';
+import { TrainingPlan } from 'src/training-plans/entities/training-plan.entity';
+import { User } from 'src/users/entities/user.entity';
+import { Repository } from 'typeorm';
 import type {
   RagDocument,
   RagDocumentMetadata,
@@ -30,7 +30,7 @@ export class DocumentExtractorService {
     private skillRepo: Repository<Skill>,
     @InjectRepository(Assignment)
     private assignmentRepo: Repository<Assignment>,
-  ) {}
+  ) { }
 
   /**
    * Extract documents visible to admin (full system data)

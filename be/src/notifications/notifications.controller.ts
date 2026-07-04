@@ -1,7 +1,7 @@
 import { Controller, Delete, Get, Param, Put, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { User } from 'src/auth/decorators/user.decorator';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { SimpleUserDto } from 'src/users/dto/simple-user.dto';
 import { NotificationsService } from './notifications.service';
 
@@ -10,7 +10,7 @@ import { NotificationsService } from './notifications.service';
 @Controller('notifications')
 @UseGuards(JwtAuthGuard)
 export class NotificationsController {
-  constructor(private readonly notificationsService: NotificationsService) {}
+  constructor(private readonly notificationsService: NotificationsService) { }
 
   @ApiOperation({ summary: 'Lấy danh sách thông báo của user' })
   @Get()

@@ -12,14 +12,6 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
-import { TrainingPlansService } from './training-plans.service';
-import { CreateTrainingPlanDto } from './dto/create-training-plan.dto';
-import { User } from 'src/auth/decorators/user.decorator';
-import { SimpleUserDto } from 'src/users/dto/simple-user.dto';
-import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
-import { RolesGuard } from 'src/auth/guards/roles.guard';
-import { Roles } from 'src/auth/decorators/roles.decorator';
-import { UpdateTrainingPlanDto } from './dto/update-training-plan.dto';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -28,12 +20,25 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { Request, Response } from 'express';
+import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+import { User } from 'src/auth/decorators/user.decorator';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { SimpleUserDto } from 'src/users/dto/simple-user.dto';
+import { CreateTrainingPlanDto } from './dto/create-training-plan.dto';
+import { UpdateTrainingPlanDto } from './dto/update-training-plan.dto';
+import { TrainingPlansService } from './training-plans.service';
 
 @ApiTags('training-plans')
 @ApiBearerAuth()
 @Controller('training-plans')
 export class TrainingPlansController {
-  constructor(private readonly trainingPlansService: TrainingPlansService) {}
+  constructor(
+    private readonly trainingPlansService: TrainingPlansService,
+    @InjectPinoLogger(TrainingPlansController.name)
+    private readonly logger: PinoLogger,
+  ) { }
 
   @ApiOperation({ summary: 'Create a training plan' })
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -43,10 +48,15 @@ export class TrainingPlansController {
     @Body() createTrainingPlanDto: CreateTrainingPlanDto,
     @User() user: SimpleUserDto,
   ) {
-    return this.trainingPlansService.createTrainingPlan(
+    const result = await this.trainingPlansService.createTrainingPlan(
       createTrainingPlanDto,
       user,
     );
+    this.logger.info(
+      { user_id: user.id, role: user.role, plan_id: result?.id },
+      'training_plan.create',
+    );
+    return result;
   }
 
   /**
@@ -156,11 +166,16 @@ export class TrainingPlansController {
     @User() user: SimpleUserDto,
     @Body('internId') internId: string,
   ) {
-    return await this.trainingPlansService.assignTrainingPlanToIntern(
+    const result = await this.trainingPlansService.assignTrainingPlanToIntern(
       id,
       internId,
       user,
     );
+    this.logger.info(
+      { user_id: user.id, role: user.role, plan_id: id, intern_id: internId },
+      'training_plan.assign',
+    );
+    return result;
   }
 
   @ApiOperation({ summary: 'Restore a training plan with Id' })
@@ -192,6 +207,11 @@ export class TrainingPlansController {
   @Roles('admin', 'mentor')
   @Delete(':id')
   async softDelete(@Param('id') id: string, @User() user: SimpleUserDto) {
-    return this.trainingPlansService.softDelete(id, user);
+    const result = await this.trainingPlansService.softDelete(id, user);
+    this.logger.info(
+      { user_id: user.id, role: user.role, plan_id: id },
+      'training_plan.delete',
+    );
+    return result;
   }
 }

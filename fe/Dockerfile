@@ -3,7 +3,8 @@ FROM node:22-alpine AS deps
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
+RUN --mount=type=cache,id=npm-fe,target=/root/.npm \
+    npm ci
 
 # ─── Stage 2: Build ───────────────────────────────────────────────────────────
 FROM node:22-alpine AS builder
@@ -20,7 +21,8 @@ ARG NEXT_PUBLIC_API_BASE_URL=http://localhost:3001
 ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
 ENV NEXT_TELEMETRY_DISABLED=1
 
-RUN npm run build
+RUN --mount=type=cache,id=nextjs-fe,target=/app/.next/cache \
+    npm run build
 
 # ─── Stage 3: Production runtime ──────────────────────────────────────────────
 FROM node:22-alpine AS runner

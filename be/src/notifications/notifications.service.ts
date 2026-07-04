@@ -22,7 +22,7 @@ export class NotificationsService {
     @InjectRepository(Notification)
     private readonly notificationRepository: Repository<Notification>,
     private readonly notificationsGateway: NotificationsGateway,
-  ) {}
+  ) { }
 
   /**
    * Kiểm tra đã có thông báo trùng (cùng recipient, type, và business key) trong thời gian gần đây chưa

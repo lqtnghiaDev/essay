@@ -1,6 +1,7 @@
 import { CorsOptions } from '@nestjs/common/interfaces/external/cors-options.interface';
 
 const CORS_ORIGINS = [
+  'http://localhost',
   'http://localhost:3000',
   'http://localhost:3001',
   'http://localhost:3002',

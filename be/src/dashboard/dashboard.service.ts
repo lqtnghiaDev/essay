@@ -2,7 +2,10 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { plainToInstance } from 'class-transformer';
+import { InternInformationDto } from 'src/interns-information/dto/intern-information.dto';
 import { InternInformation } from 'src/interns-information/entities/intern-information.entity';
+import { SimpleUserDto } from 'src/users/dto/simple-user.dto';
 import { User } from 'src/users/entities/user.entity';
 import { Repository } from 'typeorm';
 import {
@@ -11,9 +14,6 @@ import {
   MentorInternsCountResponse,
   MonthlyInternsCountResponse,
 } from './dto/dashboard-data.dto';
-import { SimpleUserDto } from 'src/users/dto/simple-user.dto';
-import { plainToInstance } from 'class-transformer';
-import { InternInformationDto } from 'src/interns-information/dto/intern-information.dto';
 
 @Injectable()
 export class DashboardService {
@@ -21,7 +21,7 @@ export class DashboardService {
     @InjectRepository(User) private readonly userRepository: Repository<User>,
     @InjectRepository(InternInformation)
     private readonly internInfoRepository: Repository<InternInformation>,
-  ) {}
+  ) { }
 
   async getInternsCount(): Promise<InternsCountResponse> {
     try {

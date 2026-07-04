@@ -1,0 +1,72 @@
+name: Tag Image (reusable)
+
+# Reusable workflow — retags an existing ECR image without rebuilding it.
+# Used for the build-once / deploy-many promotion flow: an image already built
+# and pushed (e.g. be-main-<sha>) is pulled, given a new tag (e.g. be-v1.2.3),
+# and pushed back to the same ECR repository.
+on:
+  workflow_call:
+    inputs:
+      aws-region:
+        description: AWS region where ECR lives
+        required: true
+        type: string
+      ecr-repository:
+        description: ECR repository name (without account/region prefix)
+        required: true
+        type: string
+      source-tag:
+        description: Existing image tag to promote
+        required: true
+        type: string
+      target-tag:
+        description: New tag to apply to the same image
+        required: true
+        type: string
+    secrets:
+      aws-oidc-role:
+        description: IAM role ARN to assume via OIDC
+        required: true
+    outputs:
+      image-uri:
+        description: Full ECR URI for the newly tagged image
+        value: ${{ jobs.tag.outputs.image-uri }}
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  tag:
+    name: Retag ${{ inputs.source-tag }} -> ${{ inputs.target-tag }}
+    runs-on: ubuntu-latest
+    outputs:
+      image-uri: ${{ steps.meta.outputs.image-uri }}
+
+    steps:
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.aws-oidc-role }}
+          aws-region: ${{ inputs.aws-region }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Retag and push
+        id: meta
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPO: ${{ inputs.ecr-repository }}
+          SOURCE_TAG: ${{ inputs.source-tag }}
+          TARGET_TAG: ${{ inputs.target-tag }}
+        run: |
+          SOURCE="${REGISTRY}/${REPO}:${SOURCE_TAG}"
+          TARGET="${REGISTRY}/${REPO}:${TARGET_TAG}"
+          echo "Pulling ${SOURCE}"
+          docker pull "${SOURCE}"
+          docker tag "${SOURCE}" "${TARGET}"
+          echo "Pushing ${TARGET}"
+          docker push "${TARGET}"
+          echo "image-uri=${TARGET}" >> "$GITHUB_OUTPUT"
