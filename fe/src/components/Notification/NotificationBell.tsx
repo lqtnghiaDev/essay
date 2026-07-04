@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import {
   Popover,
   PopoverContent,
-  PopoverTrigger,
+  PopoverTrigger
 } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Bell, Trash2 } from "lucide-react";
@@ -16,15 +16,19 @@ import { notificationServices } from "@/services/notification.services";
 import { Notification } from "@/types/notification.type";
 import { formatDistanceToNow } from "date-fns";
 import { enUS } from "date-fns/locale";
+import { useRouter } from "next/navigation";
+import { useAuthStore } from "@/store/useAuthStore";
 
 const NotificationBell = () => {
   const [open, setOpen] = useState(false);
+  const router = useRouter();
+  const { userDetails } = useAuthStore();
   const {
     notifications,
     unreadCount,
     markAsRead: markAsReadStore,
     markAllAsRead: markAllAsReadStore,
-    removeNotification: removeNotificationStore,
+    removeNotification: removeNotificationStore
   } = useNotificationStore();
 
   const handleMarkAsRead = async (id: string) => {
@@ -54,11 +58,63 @@ const NotificationBell = () => {
     }
   };
 
+  const buildNotificationRoute = (notification: Notification) => {
+    const data = notification.data as Record<string, unknown> | undefined;
+    const route = typeof data?.route === "string" ? data.route : undefined;
+
+    if (route) {
+      const params = new URLSearchParams();
+      if (typeof data?.assignmentId === "string") {
+        params.set("assignmentId", data.assignmentId);
+      }
+      if (typeof data?.view === "string") {
+        params.set("view", data.view);
+      }
+      const query = params.toString();
+      return query ? `${route}?${query}` : route;
+    }
+
+    if (notification.type === "ATTENDANCE_REGISTERED") {
+      const role = userDetails?.role ?? "mentor";
+      return `/${role}/attendance`;
+    }
+
+    if (notification.type === "TRAINING_PLAN_ASSIGNED") {
+      return "/intern/dashboard";
+    }
+
+    if (
+      notification.type === "ASSIGNMENT_SUBMITTED" &&
+      typeof data?.assignmentId === "string"
+    ) {
+      return `/assignments?assignmentId=${data.assignmentId}`;
+    }
+
+    if (
+      (notification.type === "ASSIGNMENT_REVIEWED" ||
+        notification.type === "ASSIGNMENT_FEEDBACK") &&
+      typeof data?.assignmentId === "string"
+    ) {
+      return `/intern/dashboard?assignmentId=${data.assignmentId}`;
+    }
+
+    return undefined;
+  };
+
+  const handleNotificationClick = async (notification: Notification) => {
+    await handleMarkAsRead(notification.id);
+    const route = buildNotificationRoute(notification);
+    if (route) {
+      setOpen(false);
+      router.push(route);
+    }
+  };
+
   const formatTime = (dateStr: string) => {
     try {
       return formatDistanceToNow(new Date(dateStr), {
         addSuffix: true,
-        locale: enUS,
+        locale: enUS
       });
     } catch {
       return dateStr;
@@ -120,11 +176,7 @@ const NotificationBell = () => {
                 className={`flex items-start gap-3 px-4 py-3 hover:bg-gray-100 cursor-pointer transition border-b border-gray-100 last:border-0 ${
                   !notification.isRead ? "bg-blue-50/50" : ""
                 }`}
-                onClick={() => {
-                  if (!notification.isRead) {
-                    handleMarkAsRead(notification.id);
-                  }
-                }}
+                onClick={() => handleNotificationClick(notification)}
               >
                 <Avatar className="w-10 h-10 shrink-0">
                   <AvatarImage src="" />

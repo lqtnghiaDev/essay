@@ -34,6 +34,7 @@ import { CSVExportButton } from "@/components/shared/Assignments/CSVExportButton
 import { Button } from "@/components/ui/button";
 import { useToastMessage } from "@/hooks/useToastMessage";
 import { AssignmentBoardSkeleton } from "@/components/common/Skeleton";
+import { useRef } from "react";
 
 const STATUSES: AssignmentStatus[] = [
   "Todo",
@@ -43,6 +44,10 @@ const STATUSES: AssignmentStatus[] = [
 ];
 
 type AssignmentsByStatus = Record<AssignmentStatus, Assignment[]>;
+
+interface AssignmentBoardProps {
+  initialAssignmentId?: string | null;
+}
 
 function matchesAssignmentSearch(
   assignment: Assignment,
@@ -67,7 +72,9 @@ function matchesAssignmentSearch(
   return parts.some((part) => part?.toLowerCase().includes(q));
 }
 
-export default function AssignmentBoard() {
+export default function AssignmentBoard({
+  initialAssignmentId
+}: AssignmentBoardProps) {
   const { showToastSuccess, showToastError } = useToastMessage();
   const [isOpenExport, setIsOpenExport] = useState(false);
   const {
@@ -173,12 +180,34 @@ export default function AssignmentBoard() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [selectedAssignment, setSelectedAssignment] =
     useState<Assignment | null>(null);
+  const openedAssignmentIdRef = useRef<string | null>(null);
 
   const handleView = (assignment: Assignment) => {
     setSelectedAssignment(assignment);
     // Defer open to next tick to avoid Radix dropdown closing conflicts
     setTimeout(() => setDetailOpen(true), 0);
   };
+
+  useEffect(() => {
+    if (!initialAssignmentId || !assignments || !Array.isArray(assignments)) {
+      return;
+    }
+
+    if (openedAssignmentIdRef.current === initialAssignmentId) {
+      return;
+    }
+
+    const foundAssignment = assignments.find(
+      (assignment) => assignment.id === initialAssignmentId
+    );
+
+    if (!foundAssignment) {
+      return;
+    }
+
+    handleView(foundAssignment);
+    openedAssignmentIdRef.current = initialAssignmentId;
+  }, [assignments, initialAssignmentId]);
 
   const handleDelete = async (id: string) => {
     try {

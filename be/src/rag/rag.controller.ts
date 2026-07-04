@@ -14,7 +14,8 @@ export class RagController {
   constructor(private readonly indexingService: IndexingService) {}
 
   @ApiOperation({
-    summary: 'Reindex toàn bộ dữ liệu vào RAG (Chroma). Chỉ admin.',
+    summary:
+      'Reindex toàn bộ dữ liệu vào RAG (Chroma + Elasticsearch). Chỉ admin.',
   })
   @Post('reindex')
   async reindex() {

@@ -568,7 +568,10 @@ export class TrainingPlansService {
           type: NotificationType.TRAINING_PLAN_ASSIGNED,
           title: 'New training plan',
           message: `${senderName} assigned a training plan to you`,
-          data: { trainingPlanId: id },
+          data: {
+            trainingPlanId: id,
+            route: '/intern/dashboard',
+          },
         });
       } catch (error) {
         // Không throw lỗi nếu gửi thông báo thất bại

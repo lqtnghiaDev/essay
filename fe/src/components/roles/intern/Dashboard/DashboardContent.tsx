@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Assignment, AssignmentStatus } from "@/types/trainingPlan.type";
 import {
   DndContext,
@@ -22,7 +22,6 @@ import { DashboardSkeleton } from "@/components/common/Skeleton";
 import OverAllProgress from "@/components/roles/intern/Dashboard/OverAllProgressIntern";
 import TrainingPlanIntern from "@/components/roles/intern/Dashboard/TrainingPlanIntern";
 import MentorIntern from "@/components/roles/intern/Dashboard/MentorIntern";
-
 const STATUSES: AssignmentStatus[] = [
   "Todo",
   "InProgress",
@@ -32,7 +31,13 @@ const STATUSES: AssignmentStatus[] = [
 
 type AssignmentsByStatus = Record<AssignmentStatus, Assignment[]>;
 
-export default function DashboardContent() {
+interface DashboardContentProps {
+  initialAssignmentId?: string | null;
+}
+
+export default function DashboardContent({
+  initialAssignmentId
+}: DashboardContentProps) {
   const { data, isLoading } = useGetInternInfoAll();
   const internInfo = data?.data?.internInformation;
   const total = data?.data?.countAssignments;
@@ -82,11 +87,34 @@ export default function DashboardContent() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [selectedAssignment, setSelectedAssignment] =
     useState<Assignment | null>(null);
+  const openedAssignmentIdRef = useRef<string | null>(null);
 
   const handleView = (assignment: Assignment) => {
     setSelectedAssignment(assignment);
     setDetailOpen(true);
   };
+
+  useEffect(() => {
+    if (!initialAssignmentId || !assignments || !Array.isArray(assignments)) {
+      return;
+    }
+
+    if (openedAssignmentIdRef.current === initialAssignmentId) {
+      return;
+    }
+
+    const foundAssignment = assignments.find(
+      (assignment) => assignment.id === initialAssignmentId
+    );
+
+    if (!foundAssignment) {
+      return;
+    }
+
+    setSelectedAssignment(foundAssignment);
+    setDetailOpen(true);
+    openedAssignmentIdRef.current = initialAssignmentId;
+  }, [assignments, initialAssignmentId]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;

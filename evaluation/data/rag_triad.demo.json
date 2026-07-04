@@ -33,6 +33,86 @@
       "retrieval_context": [
         "Kết quả tìm kiếm trong vector DB cho 'quy định nghỉ phép': không có chunk nào khớp với độ tương đồng cao."
       ]
+    },
+    {
+      "id": "mentor-get-completed-all-tasks",
+      "input": "Trong nhóm của tôi, intern nào đã hoàn thành toàn bộ bài tập của training plan hiện tại?",
+      "actual_output": "Intern đã hoàn thành toàn bộ bài tập của training plan hiện tại là:\n\nPhạm Thanh Đồng",
+      "retrieval_context": [
+        "Trạng thái các bài tập của Phạm Thanh Đồng trong training plan hiện tại đều là 'Reviewed', nên intern này đã hoàn thành toàn bộ bài tập."
+      ]
+    },
+    {
+      "id": "mentor-get-due-within-3-days",
+      "input": "Những bài tập nào trong nhóm sắp đến hạn trong vòng 3 ngày tới?",
+      "actual_output": "Những bài tập sắp đến hạn trong vòng 3 ngày tới (dựa trên tháng hiện tại là 6/2026) là:\n\n*   **Nguyễn Văn E**:\n    *   Develop Interactive 3D Model Viewer [plan: Build Projects with React & State Management] (hạn 2026-06-03)\n    *   Create SSR Blog with Dynamic Routes [plan: Build Projects with React & State Management] (hạn 2026-06-03)\n    *   Build Responsive Landing Page [plan: Build Projects with React & State Management] (hạn 2026-06-03)",
+      "retrieval_context": [
+        "Danh sách bài tập của Nguyễn Văn E trong tháng 6/2026 có hạn chót 2026-06-03 và đều nằm trong khoảng 3 ngày tới so với thời điểm truy vấn."
+      ]
+    },
+    {
+      "id": "mentor-todo-too-long",
+      "input": "Có intern nào đang bị kẹt ở trạng thái Todo quá lâu không?",
+      "actual_output": "Tôi không có thông tin về vấn đề này trong hệ thống. Hệ thống không cung cấp dữ liệu về thời gian các bài tập đã ở trạng thái \"Todo\" để đánh giá mức độ \"quá lâu\".",
+      "retrieval_context": [
+        "Không có trường dữ liệu về thời điểm bắt đầu trạng thái Todo hoặc lịch sử chuyển trạng thái đủ chi tiết để xác định một bài tập Todo đã tồn tại bao lâu."
+      ]
+    },
+    {
+      "id": "mentor-get-most-incomplete-plan",
+      "input": "Training plan nào trong nhóm có nhiều bài tập chưa hoàn thành nhất?",
+      "actual_output": "Training plan có nhiều bài tập chưa hoàn thành nhất là:\n\nMaster HTML, CSS & JavaScript Fundamentals",
+      "retrieval_context": [
+        "So sánh số lượng bài tập chưa hoàn thành theo training plan cho thấy 'Master HTML, CSS & JavaScript Fundamentals' có nhiều bài tập Todo/InProgress/Submitted hơn các plan khác."
+      ]
+    },
+    {
+      "id": "mentor-get-overdue-unreviewed-tasks",
+      "input": "Bài tập nào đang bị quá hạn nhưng vẫn chưa được review?",
+      "actual_output": "Những bài tập đang bị quá hạn nhưng vẫn chưa được review là:\n\n*   **Lê Quang Trọng Nghĩa**:\n    *   Build Responsive Landing Page [plan: Master HTML, CSS & JavaScript Fundamentals] (Submitted, hạn 2026-04-22)\n    *   Implement Global State Management [plan: Master HTML, CSS & JavaScript Fundamentals] (Submitted, hạn 2026-04-22)\n*   **Nguyễn Văn B**:\n    *   Build Responsive Landing Page [plan: Master HTML, CSS & JavaScript Fundamentals] (InProgress, hạn 2026-05-24)\n    *   Migrate Project to TypeScript + Vite [plan: Master HTML, CSS & JavaScript Fundamentals] (Submitted, hạn 2026-05-24)\n    *   Implement Global State Management [plan: Master HTML, CSS & JavaScript Fundamentals] (Todo, hạn 2026-05-24)",
+      "retrieval_context": [
+        "Các bài tập của Lê Quang Trọng Nghĩa và Nguyễn Văn B có hạn chót trước thời điểm hiện tại nhưng vẫn chưa ở trạng thái Reviewed."
+      ]
+    },
+    {
+      "id": "intern-get-nearest-deadline",
+      "input": "Bài tập nào của tôi có hạn chót gần nhất?",
+      "actual_output": "Tất cả các bài tập của bạn đều có hạn chót là 2026-04-22:\n\n*   Build Responsive Landing Page\n*   Implement Global State Management\n*   Migrate Project to TypeScript + Vite",
+      "retrieval_context": [
+        "Danh sách bài tập của Lê Quang Trọng Nghĩa trong training plan hiện tại đều có cùng hạn chót 2026-04-22."
+      ]
+    },
+    {
+      "id": "intern-get-oldest-unreviewed-submission",
+      "input": "Bài tập nào tôi đã nộp nhưng vẫn chưa được review lâu nhất?",
+      "actual_output": "Tôi không có thông tin đầy đủ về vấn đề này trong hệ thống. Ngày nộp của bài tập \"Implement Global State Management\" không được cung cấp, do đó tôi không thể xác định bài tập nào đã nộp lâu nhất mà chưa được review.",
+      "retrieval_context": [
+        "Có các bài tập ở trạng thái Submitted, nhưng hệ thống không lưu hoặc không trả về ngày nộp để so sánh bài nào chờ review lâu nhất."
+      ]
+    },
+    {
+      "id": "intern-get-uncompleted-count",
+      "input": "Trong training plan hiện tại, tôi còn bao nhiêu bài tập chưa hoàn thành?",
+      "actual_output": "Bạn không còn bài tập nào chưa hoàn thành trong training plan hiện tại.",
+      "retrieval_context": [
+        "Các bài tập của Lê Quang Trọng Nghĩa trong training plan hiện tại không còn ở trạng thái Todo hoặc InProgress."
+      ]
+    },
+    {
+      "id": "intern-get-completed-this-month",
+      "input": "Những bài tập nào tôi đã hoàn thành trong tháng này?",
+      "actual_output": "Tôi không có thông tin về bài tập nào bạn đã hoàn thành trong tháng này trong hệ thống.",
+      "retrieval_context": [
+        "Không có dữ liệu hoàn thành theo tháng đủ rõ ràng cho thực tập sinh này trong hệ thống hiện tại."
+      ]
+    },
+    {
+      "id": "intern-get-next-step-in-plan",
+      "input": "Tôi đang ở bước nào tiếp theo trong training plan của mình?",
+      "actual_output": "Kế hoạch đào tạo của bạn là \"Master HTML, CSS & JavaScript Fundamentals\" và trạng thái hiện tại là \"Completed\". Tôi không có thông tin về bước tiếp theo trong training plan của bạn.",
+      "retrieval_context": [
+        "Training plan hiện tại của Lê Quang Trọng Nghĩa đã ở trạng thái Completed, nhưng hệ thống không có mô tả bước kế tiếp sau khi hoàn thành plan."
+      ]
     }
   ]
 }
