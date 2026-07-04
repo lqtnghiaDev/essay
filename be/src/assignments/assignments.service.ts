@@ -296,6 +296,8 @@ export class AssignmentsService {
 
       assignment.status = status;
       await this.assignmentRepository.save(assignment);
+      const assignmentDetails = await this.findOneById(id);
+      const assignmentName = assignmentDetails.task?.name || 'Assignment';
 
       // Gửi thông báo realtime (dùng tên người gửi, phân biệt role)
       try {
@@ -308,8 +310,13 @@ export class AssignmentsService {
               senderId: user.id,
               type: NotificationType.ASSIGNMENT_SUBMITTED,
               title: 'Assignment submitted',
-              message: `${senderName} submitted an assignment`,
-              data: { assignmentId: id },
+              message: `${senderName} submitted "${assignmentName}"`,
+              data: {
+                assignmentId: id,
+                assignmentTitle: assignmentName,
+                route: '/assignments',
+                view: 'assignment',
+              },
             });
           }
         } else if (status === 'Reviewed' && assignment.assignedTo) {
@@ -318,8 +325,13 @@ export class AssignmentsService {
             senderId: user.id,
             type: NotificationType.ASSIGNMENT_REVIEWED,
             title: 'Assignment reviewed',
-            message: `${senderName} reviewed your assignment`,
-            data: { assignmentId: id },
+            message: `${senderName} reviewed "${assignmentName}"`,
+            data: {
+              assignmentId: id,
+              assignmentTitle: assignmentName,
+              route: '/intern/dashboard',
+              view: 'assignment',
+            },
           });
         }
       } catch (error) {
@@ -420,6 +432,8 @@ export class AssignmentsService {
       await this.assignmentRepository.save(assignment);
 
       // Gửi thông báo cho intern khi mentor feedback (có tên người gửi)
+      const assignmentDetails = await this.findOneById(id);
+      const assignmentName = assignmentDetails.task?.name || 'Assignment';
       try {
         if (assignment.assignedTo) {
           const senderName = user.fullName || user.username || 'Mentor';
@@ -428,8 +442,13 @@ export class AssignmentsService {
             senderId: user.id,
             type: NotificationType.ASSIGNMENT_FEEDBACK,
             title: 'New feedback',
-            message: `${senderName} left feedback on your assignment`,
-            data: { assignmentId: id },
+            message: `${senderName} left feedback on "${assignmentName}"`,
+            data: {
+              assignmentId: id,
+              assignmentTitle: assignmentName,
+              route: '/intern/dashboard',
+              view: 'assignment',
+            },
           });
         }
       } catch (error) {

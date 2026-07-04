@@ -125,11 +125,15 @@ export class AttendanceService {
               attendanceId: savedAttendance.id,
               date: dto.date,
               workLocation: dto.workLocation,
+              route: '/mentor/attendance',
             },
           });
         }
       } catch (notifError) {
-        console.error('Failed to send notification:', notifError.message);
+        console.error(
+          'Failed to send notification:',
+          this.getErrorMessage(notifError),
+        );
       }
 
       return savedAttendance;
@@ -140,7 +144,7 @@ export class AttendanceService {
       )
         throw error;
       throw new InternalServerErrorException(
-        'Error registering attendance: ' + error.message,
+        'Error registering attendance: ' + this.getErrorMessage(error),
       );
     }
   }
@@ -166,7 +170,7 @@ export class AttendanceService {
       return this.buildWeekView(startDate, attendances);
     } catch (error) {
       throw new InternalServerErrorException(
-        'Error fetching week attendance: ' + error.message,
+        'Error fetching week attendance: ' + this.getErrorMessage(error),
       );
     }
   }
@@ -216,7 +220,7 @@ export class AttendanceService {
       });
     } catch (error) {
       throw new InternalServerErrorException(
-        'Error fetching mentor week view: ' + error.message,
+        'Error fetching mentor week view: ' + this.getErrorMessage(error),
       );
     }
   }
@@ -286,7 +290,7 @@ export class AttendanceService {
       return { interns, stats };
     } catch (error) {
       throw new InternalServerErrorException(
-        'Error fetching admin week view: ' + error.message,
+        'Error fetching admin week view: ' + this.getErrorMessage(error),
       );
     }
   }
@@ -329,7 +333,7 @@ export class AttendanceService {
       };
     } catch (error) {
       throw new InternalServerErrorException(
-        'Error fetching attendance stats: ' + error.message,
+        'Error fetching attendance stats: ' + this.getErrorMessage(error),
       );
     }
   }
@@ -375,7 +379,7 @@ export class AttendanceService {
       return this.buildMonthView(startDate, endDate, attendances);
     } catch (error) {
       throw new InternalServerErrorException(
-        'Error fetching month attendance: ' + error.message,
+        'Error fetching month attendance: ' + this.getErrorMessage(error),
       );
     }
   }
@@ -419,7 +423,7 @@ export class AttendanceService {
       });
     } catch (error) {
       throw new InternalServerErrorException(
-        'Error fetching mentor month view: ' + error.message,
+        'Error fetching mentor month view: ' + this.getErrorMessage(error),
       );
     }
   }
@@ -488,7 +492,7 @@ export class AttendanceService {
       return { interns, stats };
     } catch (error) {
       throw new InternalServerErrorException(
-        'Error fetching admin month view: ' + error.message,
+        'Error fetching admin month view: ' + this.getErrorMessage(error),
       );
     }
   }
@@ -572,5 +576,9 @@ export class AttendanceService {
   private getDaysBetween(start: Date, end: Date): number {
     const diffTime = Math.abs(end.getTime() - start.getTime());
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+  }
+
+  private getErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
   }
 }

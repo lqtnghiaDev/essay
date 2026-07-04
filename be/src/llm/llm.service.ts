@@ -48,7 +48,9 @@ export class LlmService {
    */
   async generateResponse(messages: ChatMessage[]): Promise<string> {
     if (!this.client || !this.isConfigured) {
-      this.logger.warn('LLM client chưa được cấu hình, trả về fallback message');
+      this.logger.warn(
+        'LLM client chưa được cấu hình, trả về fallback message',
+      );
       return 'Hệ thống AI chưa được cấu hình. Vui lòng liên hệ quản trị viên.';
     }
 
@@ -93,7 +95,8 @@ Assistant:`;
       );
       return result.text;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       const errorStack = error instanceof Error ? error.stack : undefined;
       this.logger.error(
         `Lỗi khi gọi Gemini API với model ${this.model}. Chi tiết: ${errorMessage}`,
@@ -132,9 +135,8 @@ Quy tắc:
     if (options?.ragContext?.trim()) {
       base += `
 
---- Ngữ cảnh từ hệ thống (chỉ dùng thông tin này để trả lời) ---
-${options.ragContext}
---- Hết ngữ cảnh ---`;
+Dữ liệu tham khảo nội bộ (chỉ dùng để trả lời, không nhắc lại nhãn này):
+${options.ragContext}`;
     }
     return base;
   }
