@@ -55,7 +55,7 @@ def _eval_model():
     from deepeval.models import GeminiModel
 
     # Bạn có thể đổi sang model khác nhẹ hơn nếu cần, mặc định lấy từ env hoặc gemini-2.5-flash
-    model_name = (os.getenv("EVAL_GEMINI_MODEL") or "gemini-2.5-flash").strip()
+    model_name = (os.getenv("EVAL_GEMINI_MODEL") or "gemini-3.1-flash-lite").strip()
     return GeminiModel(
         model=model_name,
         api_key=_require_api_key(),
@@ -351,7 +351,7 @@ def run_triad(
         "run_at": datetime.now(timezone.utc).isoformat(),
         "mode": "triad",
         "cases_path": str(cases_path.as_posix()),
-        "eval_model": os.getenv("EVAL_GEMINI_MODEL", "gemini-2.5-flash"),
+        "eval_model": os.getenv("EVAL_GEMINI_MODEL", "gemini-3.1-flash-lite"),
         "summary": {
             "answer_relevancy_avg": _avg_scores(rows, "AnswerRelevancyMetric"),
             "faithfulness_avg": _avg_scores(rows, "FaithfulnessMetric"),
@@ -450,7 +450,7 @@ def run_split(
         "run_at": datetime.now(timezone.utc).isoformat(),
         "mode": "split",
         "cases_path": str(cases_path.as_posix()),
-        "eval_model": os.getenv("EVAL_GEMINI_MODEL", "gemini-2.5-flash"),
+        "eval_model": os.getenv("EVAL_GEMINI_MODEL", "gemini-3.1-flash-lite"),
         "summary": {
             "retrieval": {
                 "contextual_precision_avg": avg_for("retrieval", "ContextualPrecisionMetric"),
