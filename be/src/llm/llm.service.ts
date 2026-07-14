@@ -7,6 +7,13 @@ export interface ChatMessage {
   content: string;
 }
 
+export interface SystemPromptOptions {
+  role?: string;
+  userContext?: string;
+  dataContext?: string;
+  ragContext?: string;
+}
+
 @Injectable()
 export class LlmService {
   private readonly logger = new Logger(LlmService.name);
@@ -22,7 +29,7 @@ export class LlmService {
         this.client = new GoogleGenAI({ apiKey });
         this.isConfigured = true;
         this.logger.log(
-          `LLM API key được cấu hình thành công từ GEMINI_API_KEY. Model: ${this.configService.get<string>('GEMINI_MODEL') || 'gemini-2.5-flash'}`,
+          `LLM API key được cấu hình thành công từ GEMINI_API_KEY. Model: ${this.configService.get<string>('GEMINI_MODEL') || 'gemini-3.1-flash-lite'}`,
         );
       } catch (error) {
         this.isConfigured = false;
@@ -40,7 +47,7 @@ export class LlmService {
     }
 
     this.model =
-      this.configService.get<string>('GEMINI_MODEL') || 'gemini-2.5-flash';
+      this.configService.get<string>('GEMINI_MODEL') || 'gemini-3.1-flash-lite';
   }
 
   /**
@@ -109,7 +116,7 @@ Assistant:`;
   /**
    * System prompt cho trợ lý RAG: role + ngữ cảnh từ vector store
    */
-  getSystemPrompt(options?: { role?: string; ragContext?: string }): string {
+  getSystemPrompt(options?: SystemPromptOptions): string {
     const roleLabel =
       options?.role === 'admin'
         ? 'quản trị viên (admin)'
@@ -131,6 +138,20 @@ Quy tắc:
 3. Sử dụng tiếng Việt
 4. Không bịa đặt thông tin
 5. Khi liệt kê (danh sách người, bài tập, từng mục): mỗi mục phải xuống dòng riêng, dùng ký tự xuống dòng thực sự giữa từng dòng (ví dụ: mỗi tên người một dòng, mỗi bài tập một dòng) để người đọc dễ theo dõi`;
+
+    if (options?.userContext?.trim()) {
+      base += `
+
+Thông tin người dùng hiện tại:
+${options.userContext.trim()}`;
+    }
+
+    if (options?.dataContext?.trim()) {
+      base += `
+
+Dữ liệu nghiệp vụ trực tiếp từ DB:
+${options.dataContext.trim()}`;
+    }
 
     if (options?.ragContext?.trim()) {
       base += `

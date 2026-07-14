@@ -16,6 +16,11 @@ const CORS_ORIGINS = [
   'https://backend.backend.svc.cluster.local:3002',
   'http://backend.backend.svc.cluster.local:3003',
   'https://backend.backend.svc.cluster.local:3003',
+  // Thêm IP local để hỗ trợ đầy đủ các cơ chế gọi từ trình duyệt
+  'http://127.0.0.1',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:3001',
+  'http://127.0.0.1:3002',
 ];
 
 /**
@@ -33,4 +38,6 @@ export const CORS_CONFIG: CorsOptions = {
   credentials: true,
   /** Cache successful preflight; reduces duplicate OPTIONS from the browser. */
   maxAge: 86400,
+  // Đảm bảo các request preflight OPTIONS trả về trạng thái 200 thông suốt
+  optionsSuccessStatus: 200,
 };

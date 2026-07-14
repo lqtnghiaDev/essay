@@ -6,12 +6,14 @@ import { ChatService } from './chat.service';
 import { ChatController } from './chat.controller';
 import { LlmModule } from '../llm/llm.module';
 import { RagModule } from '../rag/rag.module';
+import { InternsInformationModule } from '../interns-information/interns-information.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([ChatSession, Message]),
     LlmModule,
     RagModule,
+    InternsInformationModule,
   ],
   controllers: [ChatController],
   providers: [ChatService],

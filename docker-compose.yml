@@ -5,38 +5,44 @@ services:
       context: ./be
       dockerfile: Dockerfile
     restart: unless-stopped
+
     environment:
       # Force the in-container port to 3000 so it matches EXPOSE, the healthcheck
       # and the "3001:3000" mapping. be/.env sets PORT=3001 for local dev (to avoid
       # clashing with the frontend on 3000); env_file would otherwise leak that here.
       PORT: 3000
-      # # Always overrides .env so the service name resolves inside compose network.
+
+      # Always overrides .env so the service name resolves inside compose network.
       # DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-internship}
-    env_file:
-      # Provides JWT_SECRET, GEMINI_API_KEY, OPENAI_API_KEY, etc.
-      # Copy be/.env.example → be/.env and fill in real values.
-      - path: ./be/.env
-        required: false
-    ports:
-      - "3001:3000"
-    environment:
+
       OTEL_ENABLED: "true"
       OTEL_SERVICE_NAME: internship-management-be
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
       LOG_LEVEL: info
       ELASTICSEARCH_URL: http://elasticsearch:9200
+
+    env_file:
+      # Provides JWT_SECRET, GEMINI_API_KEY, OPENAI_API_KEY, etc.
+      # Copy be/.env.example → be/.env and fill in real values.
+      - path: ./be/.env
+        required: false
+
+    ports:
+      - "3001:3000"
+
     healthcheck:
       test:
         [
           "CMD",
           "node",
           "-e",
-          "require('net').createConnection(3000,'localhost').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))",
+          "require('net').createConnection(3000,'localhost').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))"
         ]
       interval: 30s
       timeout: 5s
       start_period: 20s
       retries: 3
+
     depends_on:
       jaeger:
         condition: service_started
@@ -52,19 +58,25 @@ services:
         # Baked into the JS bundle at build time (NEXT_PUBLIC_* cannot be set at runtime).
         # For production, override with the real backend URL in your CI pipeline.
         NEXT_PUBLIC_API_BASE_URL: http://192.168.1.9:3001
+
     restart: unless-stopped
+
     env_file:
       - path: ./fe/.env
         required: false
+
     environment:
       # Inside Docker network, collector is reachable by service name, not localhost.
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+
     ports:
       - "80:3000"
+
     depends_on:
       backend:
         condition: service_healthy
 
+  # ── Jaeger ────────────────────────────────────────────────────────────────────
   jaeger:
     image: jaegertracing/all-in-one:1.59
     restart: unless-stopped
@@ -76,6 +88,7 @@ services:
       - "16686:16686"
       - "4318:4318"
 
+  # ── Prometheus ────────────────────────────────────────────────────────────────
   prometheus:
     image: prom/prometheus:v2.55.1
     restart: unless-stopped
@@ -87,72 +100,95 @@ services:
       backend:
         condition: service_started
 
+  # ── Elasticsearch ─────────────────────────────────────────────────────────────
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
     restart: unless-stopped
+
     environment:
       discovery.type: single-node
       xpack.security.enabled: "false"
       ES_JAVA_OPTS: -Xms512m -Xmx512m
+
     ports:
       - "9200:9200"
+
     volumes:
       - elasticsearch_data:/usr/share/elasticsearch/data
 
+  # ── ChromaDB ──────────────────────────────────────────────────────────────────
   chroma:
     image: chromadb/chroma:0.5.23
     profiles:
       - rag
     restart: unless-stopped
+
     ports:
       - "8000:8000"
+
     volumes:
       - chroma_data:/chroma/chroma
+
     environment:
       IS_PERSISTENT: "TRUE"
       ANONYMIZED_TELEMETRY: "FALSE"
 
+  # ── Kibana ────────────────────────────────────────────────────────────────────
   kibana:
     image: docker.elastic.co/kibana/kibana:8.15.0
     restart: unless-stopped
+
     ports:
       - "5601:5601"
+
     environment:
       ELASTICSEARCH_HOSTS: http://elasticsearch:9200
       SERVER_HOST: 0.0.0.0
       SERVER_PUBLICBASEURL: http://localhost:5601
+
     depends_on:
       elasticsearch:
         condition: service_started
 
+  # ── Grafana ───────────────────────────────────────────────────────────────────
   grafana:
     image: grafana/grafana:11.2.0
     restart: unless-stopped
+
     ports:
       - "3002:3000"
+
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin
       GF_USERS_ALLOW_SIGN_UP: "false"
+
     volumes:
       - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+
     depends_on:
       prometheus:
         condition: service_started
       jaeger:
         condition: service_started
 
+  # ── Fluent Bit ────────────────────────────────────────────────────────────────
   fluent-bit:
     image: cr.fluentbit.io/fluent/fluent-bit:3.1.9
     restart: unless-stopped
     user: root
+
     command:
-      ["/fluent-bit/bin/fluent-bit", "-c", "/fluent-bit/etc/fluent-bit.conf"]
+      - /fluent-bit/bin/fluent-bit
+      - -c
+      - /fluent-bit/etc/fluent-bit.conf
+
     volumes:
       - ./observability/fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
       - ./observability/fluent-bit/parsers.conf:/fluent-bit/etc/parsers.conf:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
+
     depends_on:
       elasticsearch:
         condition: service_started
@@ -160,5 +196,3 @@ services:
 volumes:
   chroma_data:
   elasticsearch_data:
-
-  # netsh interface portproxy add v4tov4 listenaddress=0.0.0.0 listenport=80   connectaddress=172.19.6.248 connectport=80

@@ -5,6 +5,7 @@ import { User } from 'src/auth/decorators/user.decorator';
 import { ChatService } from './chat.service';
 import { CreateSessionDto } from './dto/create-session.dto';
 import { SendMessageDto } from './dto/send-message.dto';
+import { SimpleUserDto } from 'src/users/dto/simple-user.dto';
 
 @ApiTags('chat')
 @ApiBearerAuth()
@@ -16,7 +17,7 @@ export class ChatController {
   @ApiOperation({ summary: 'Tạo phiên chat mới' })
   @ApiBody({ type: CreateSessionDto })
   @Post('session')
-  async createSession(@User() user: { id: string; role: string }) {
+  async createSession(@User() user: SimpleUserDto) {
     return this.chatService.createSession(user.id, user.role);
   }
 
@@ -38,14 +39,13 @@ export class ChatController {
   @ApiBody({ type: SendMessageDto })
   @Post('message')
   async sendMessage(
-    @User() user: { id: string; role: string },
+    @User() user: SimpleUserDto,
     @Body() sendMessageDto: SendMessageDto,
   ) {
     return this.chatService.sendMessage(
       sendMessageDto.sessionId,
       sendMessageDto.content,
-      user.id,
-      user.role,
+      user,
     );
   }
 }
