@@ -7,10 +7,12 @@ import { ChatController } from './chat.controller';
 import { LlmModule } from '../llm/llm.module';
 import { RagModule } from '../rag/rag.module';
 import { InternsInformationModule } from '../interns-information/interns-information.module';
+import { Attendance } from '../attendance/entities/attendance.entity';
+import { Assignment } from '../assignments/entities/assignment.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ChatSession, Message]),
+    TypeOrmModule.forFeature([ChatSession, Message, Attendance, Assignment]),
     LlmModule,
     RagModule,
     InternsInformationModule,
