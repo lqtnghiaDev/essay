@@ -4,7 +4,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
+import { Attendance } from '../attendance/entities/attendance.entity';
+import { Assignment } from '../assignments/entities/assignment.entity';
 import { ChatSession } from './entities/chat-session.entity';
 import { Message, SenderRole } from './entities/message.entity';
 import { LlmService, ChatMessage } from '../llm/llm.service';
@@ -20,6 +22,10 @@ export class ChatService {
     private chatSessionRepository: Repository<ChatSession>,
     @InjectRepository(Message)
     private messageRepository: Repository<Message>,
+    @InjectRepository(Attendance)
+    private attendanceRepository: Repository<Attendance>,
+    @InjectRepository(Assignment)
+    private assignmentRepository: Repository<Assignment>,
     private llmService: LlmService,
     private retrievalService: RetrievalService,
     private internsInformationService: InternsInformationService,
@@ -247,6 +253,22 @@ export class ChatService {
       ].join(' ');
     }
 
+    const attendanceAnswer = await this.buildTodayAttendanceAnswer(
+      normalized,
+      user,
+    );
+    if (attendanceAnswer) {
+      return attendanceAnswer;
+    }
+
+    const assignmentAnswer = await this.buildIncompleteAssignmentsAnswer(
+      normalized,
+      user,
+    );
+    if (assignmentAnswer) {
+      return assignmentAnswer;
+    }
+
     if (user.role === 'mentor' && this.isMentorInternListQuestion(normalized)) {
       const interns = await this.internsInformationService.findByMentorId(
         user.id,
@@ -270,6 +292,188 @@ export class ChatService {
     return null;
   }
 
+  private async buildTodayAttendanceAnswer(
+    normalized: string,
+    user: SimpleUserDto,
+  ): Promise<string | null> {
+    if (!this.isTodayAttendanceQuestion(normalized)) {
+      return null;
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+
+    if (user.role === 'mentor') {
+      const internInfos = await this.internsInformationService.findByMentorId(
+        user.id,
+      );
+      const internIds = internInfos.map((info) => info.internId);
+
+      if (internIds.length === 0) {
+        return 'Hiện bạn chưa có thực tập sinh nào trong hệ thống.';
+      }
+
+      const attendances = await this.attendanceRepository.find({
+        where: {
+          userId: In(internIds),
+          date: today,
+        },
+        relations: ['user'],
+        order: { createdAt: 'ASC' },
+      });
+
+      if (attendances.length === 0) {
+        return 'Hôm nay chưa có thực tập sinh nào của bạn chấm công.';
+      }
+
+      const lines = attendances.map((attendance, index) => {
+        const internName = attendance.user?.fullName || attendance.userId;
+        const location =
+          attendance.workLocation === 'office' ? 'tại công ty' : 'từ xa';
+        return `${index + 1}. ${internName} - ${location}`;
+      });
+
+      return [`Hôm nay đã chấm công:`, ...lines].join('\n');
+    }
+
+    if (user.role === 'intern') {
+      const attendance = await this.attendanceRepository.findOne({
+        where: {
+          userId: user.id,
+          date: today,
+        },
+      });
+
+      if (!attendance) {
+        return 'Hôm nay bạn chưa chấm công.';
+      }
+
+      const location =
+        attendance.workLocation === 'office' ? 'tại công ty' : 'từ xa';
+      return `Hôm nay bạn đã chấm công ${location}.`;
+    }
+
+    if (user.role === 'admin') {
+      const internInfos = await this.internsInformationService.findAll();
+      const internIds = internInfos.map((info) => info.internId);
+
+      if (internIds.length === 0) {
+        return 'Hiện chưa có thực tập sinh nào trong hệ thống.';
+      }
+
+      const attendances = await this.attendanceRepository.find({
+        where: {
+          userId: In(internIds),
+          date: today,
+        },
+        relations: ['user'],
+        order: { createdAt: 'ASC' },
+      });
+
+      if (attendances.length === 0) {
+        return 'Hôm nay chưa có thực tập sinh nào chấm công.';
+      }
+
+      return [
+        'Hôm nay đã chấm công:',
+        ...attendances.map((attendance, index) => {
+          const internName = attendance.user?.fullName || attendance.userId;
+          const location =
+            attendance.workLocation === 'office' ? 'tại công ty' : 'từ xa';
+          return `${index + 1}. ${internName} - ${location}`;
+        }),
+      ].join('\n');
+    }
+
+    return null;
+  }
+
+  private async buildIncompleteAssignmentsAnswer(
+    normalized: string,
+    user: SimpleUserDto,
+  ): Promise<string | null> {
+    if (!this.isIncompleteAssignmentsQuestion(normalized)) {
+      return null;
+    }
+
+    if (user.role === 'mentor') {
+      const internInfos = await this.internsInformationService.findByMentorId(
+        user.id,
+      );
+      const internIds = internInfos.map((info) => info.internId);
+
+      if (internIds.length === 0) {
+        return 'Hiện bạn chưa có thực tập sinh nào trong hệ thống.';
+      }
+
+      const assignments = await this.assignmentRepository.find({
+        where: {
+          assignedTo: In(internIds),
+          isDeleted: false,
+        },
+        relations: ['task', 'assignee'],
+        order: { dueDate: 'ASC' },
+      });
+
+      const pendingAssignments = assignments.filter(
+        (assignment) =>
+          assignment.status === 'Todo' || assignment.status === 'InProgress',
+      );
+
+      if (pendingAssignments.length === 0) {
+        return 'Hiện không có bài tập nào chưa hoàn thành.';
+      }
+
+      const internNameById = new Map(
+        internInfos.map((info) => [
+          info.internId,
+          info.intern?.fullName || info.internId,
+        ]),
+      );
+
+      return [
+        'Các bài tập chưa hoàn thành:',
+        ...pendingAssignments.map((assignment, index) => {
+          const internName =
+            internNameById.get(assignment.assignedTo || '') ||
+            assignment.assignedTo ||
+            '—';
+          const taskName = assignment.task?.name || '—';
+          return `${index + 1}. ${internName} - ${taskName} - ${assignment.status}`;
+        }),
+      ].join('\n');
+    }
+
+    if (user.role === 'intern') {
+      const assignments = await this.assignmentRepository.find({
+        where: {
+          assignedTo: user.id,
+          isDeleted: false,
+        },
+        relations: ['task'],
+        order: { dueDate: 'ASC' },
+      });
+
+      const pendingAssignments = assignments.filter(
+        (assignment) =>
+          assignment.status === 'Todo' || assignment.status === 'InProgress',
+      );
+
+      if (pendingAssignments.length === 0) {
+        return 'Bạn không còn bài tập nào chưa hoàn thành.';
+      }
+
+      return [
+        'Các bài tập bạn chưa hoàn thành:',
+        ...pendingAssignments.map((assignment, index) => {
+          const taskName = assignment.task?.name || '—';
+          return `${index + 1}. ${taskName} - ${assignment.status}`;
+        }),
+      ].join('\n');
+    }
+
+    return null;
+  }
+
   private isIdentityQuestion(normalized: string): boolean {
     return (
       normalized.includes('toi la ai') ||
@@ -285,6 +489,23 @@ export class ChatService {
       normalized.includes('danh sach intern') ||
       normalized.includes('intern cua toi') ||
       normalized.includes('thuc tap sinh cua toi')
+    );
+  }
+
+  private isTodayAttendanceQuestion(normalized: string): boolean {
+    return (
+      normalized.includes('hom nay') &&
+      (normalized.includes('cham cong') || normalized.includes('diem danh'))
+    );
+  }
+
+  private isIncompleteAssignmentsQuestion(normalized: string): boolean {
+    return (
+      normalized.includes('bai tap') &&
+      (normalized.includes('chua hoan thanh') ||
+        normalized.includes('chua xong') ||
+        normalized.includes('chua nop') ||
+        normalized.includes('dang lam'))
     );
   }
 
